@@ -175,6 +175,7 @@
 .pwtv-metric-battery {
   left: 15%;
   top: 78%;
+  transform: translate(0, -50%);
 }
 
 .pwtv-metric-grid {
