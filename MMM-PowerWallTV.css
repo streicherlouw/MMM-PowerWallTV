@@ -175,7 +175,7 @@
 .pwtv-metric-battery {
   left: 5%;
   text-align: left;
-  top: 83%;
+  top: 78%;
   transform: translate(0, -50%) scale(1.2);
   transform-origin: left center;
 }
