@@ -5,6 +5,9 @@
   --pwtv-scale: 1;
   --pwtv-x: 0px;
   --pwtv-y: 0px;
+  --pwtv-image-scale: 1.2;
+  --pwtv-image-x: -8%;
+  --pwtv-image-y: 0%;
   border-radius: var(--pwtv-radius);
   box-sizing: border-box;
   container-type: inline-size;
@@ -31,6 +34,15 @@
   contain: layout paint;
   overflow: hidden;
   position: relative;
+  width: 100%;
+}
+
+.pwtv-stage {
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  transform: translate(var(--pwtv-image-x), var(--pwtv-image-y)) scale(var(--pwtv-image-scale));
+  transform-origin: center center;
   width: 100%;
 }
 
@@ -86,10 +98,10 @@
 }
 
 .pwtv-summary {
-  left: 20%;
-  max-width: 26%;
+  left: 3.2%;
+  max-width: 31%;
   text-align: left;
-  top: 10.5%;
+  top: 4%;
 }
 
 .pwtv-summary-site,

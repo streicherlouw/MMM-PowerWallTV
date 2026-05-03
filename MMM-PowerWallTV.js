@@ -10,6 +10,9 @@ Module.register("MMM-PowerWallTV", {
     cornerRadius: "18px",
     domUpdateAnimationSpeed: 0,
     animation: true,
+    imageScale: 1.2,
+    imageHorizontalOffset: "-8%",
+    imageVerticalOffset: "0%",
     showSummary: true,
     showGridCarbon: true,
     showVehicle: true,
@@ -121,41 +124,47 @@ Module.register("MMM-PowerWallTV", {
     wrapper.style.setProperty("--pwtv-scale", String(this.config.scale));
     wrapper.style.setProperty("--pwtv-x", `${this.config.horizontalOffset}px`);
     wrapper.style.setProperty("--pwtv-y", `${this.config.verticalOffset}px`);
+    wrapper.style.setProperty("--pwtv-image-scale", String(this.config.imageScale));
+    wrapper.style.setProperty("--pwtv-image-x", this.config.imageHorizontalOffset);
+    wrapper.style.setProperty("--pwtv-image-y", this.config.imageVerticalOffset);
 
     const scene = this.el("div", "pwtv-scene");
     wrapper.appendChild(scene);
 
+    const stage = this.el("div", "pwtv-stage");
+    scene.appendChild(stage);
+
     const image = this.el("img", "pwtv-home-image");
     image.src = this.file(`assets/${this.homeImageName()}`);
     image.alt = "";
-    scene.appendChild(image);
+    stage.appendChild(image);
 
     if (!this.snapshot) {
       scene.appendChild(this.renderLoading());
       return wrapper;
     }
 
-    scene.appendChild(this.renderFlows(this.snapshot));
-    scene.appendChild(this.renderBatteryFill(this.snapshot));
+    stage.appendChild(this.renderFlows(this.snapshot));
+    stage.appendChild(this.renderBatteryFill(this.snapshot));
 
     if (this.config.showSummary) {
       scene.appendChild(this.renderSummary(this.snapshot));
     }
 
-    scene.appendChild(this.renderMetric("solar", this.formatPower(this.snapshot.solarPower), "SOLAR"));
-    scene.appendChild(this.renderMetric("home", this.formatPower(this.homePowerToDisplay(this.snapshot)), "HOME"));
-    scene.appendChild(this.renderMetric("battery", this.renderBatteryValue(this.snapshot), this.batteryLabel(this.snapshot), true));
-    scene.appendChild(this.renderMetric("grid", this.renderGridValue(this.snapshot), this.gridLabel(this.snapshot), true));
+    stage.appendChild(this.renderMetric("solar", this.formatPower(this.snapshot.solarPower), "SOLAR"));
+    stage.appendChild(this.renderMetric("home", this.formatPower(this.homePowerToDisplay(this.snapshot)), "HOME"));
+    stage.appendChild(this.renderMetric("battery", this.renderBatteryValue(this.snapshot), this.batteryLabel(this.snapshot), true));
+    stage.appendChild(this.renderMetric("grid", this.renderGridValue(this.snapshot), this.gridLabel(this.snapshot), true));
 
     if (this.config.showVehicle && this.hasWallConnector(this.snapshot)) {
-      scene.appendChild(this.renderMetric("vehicle", this.vehicleValue(this.snapshot), this.vehicleLabel(this.snapshot)));
+      stage.appendChild(this.renderMetric("vehicle", this.vehicleValue(this.snapshot), this.vehicleLabel(this.snapshot)));
     }
 
     if (this.isOffGrid(this.snapshot)) {
       const offGrid = this.el("img", "pwtv-off-grid");
       offGrid.src = this.file("assets/off-grid.png");
       offGrid.alt = "";
-      scene.appendChild(offGrid);
+      stage.appendChild(offGrid);
     }
 
     if (this.config.showHistory) {
@@ -252,50 +261,151 @@ Module.register("MMM-PowerWallTV", {
     svg.setAttribute("preserveAspectRatio", "none");
 
     const threshold = Number(this.config.powerThresholdWatts) || 10;
-    const flows = [
-      {
-        active: snapshot.solarPower > threshold,
-        color: "#ffd84d",
-        d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5"
-      },
-      {
-        active: this.homePowerToDisplay(snapshot) > threshold,
-        color: this.houseFlowColor(snapshot),
-        d: "M 781.8 438.6 L 853.1 421.3"
-      },
-      {
-        active: Math.abs(snapshot.batteryPower) > threshold,
-        reverse: snapshot.batteryPower < 0,
-        color: snapshot.batteryPower > 0 ? "#4fd26b" : this.chargingColor(snapshot),
-        d: "M 671.9 472.5 Q 672.2 463.1 684.9 461.8 L 760.4 443.2"
-      },
-      {
-        active: !this.isOffGrid(snapshot) && Math.abs(snapshot.gridPower) > threshold,
-        reverse: snapshot.gridPower > 0,
-        color: snapshot.gridPower > 0 ? "#9aa0a6" : this.gridExportColor(snapshot),
-        d: "M 769.3 476.3 L 769.3 494.0 A 5.0 5.0 0 0 1 772.8 504.3 L 894.8 548.2"
-      },
-      {
-        active: this.wallConnectorPower(snapshot) > threshold,
-        reverse: true,
-        color: this.houseFlowColor(snapshot),
-        d: "M 486.4 469.5 C 482.6 460.4 478.7 460.4 478.7 423.6"
-      }
-    ];
+    const flows = this.flowRoutes(snapshot, threshold);
 
     flows.forEach((flow) => {
-      if (!flow.active) {
-        return;
-      }
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("class", `pwtv-flow${flow.reverse ? " pwtv-flow-reverse" : ""}`);
+      path.setAttribute("class", "pwtv-flow");
       path.setAttribute("d", flow.d);
-      path.setAttribute("pathLength", "100");
+      path.setAttribute("pathLength", String(flow.pathLength || 200));
       path.style.setProperty("--flow-color", flow.color);
       svg.appendChild(path);
     });
 
     return svg;
+  },
+
+  flowRoutes(snapshot, threshold) {
+    const flows = [];
+    const keys = new Set();
+    const add = (source, destination) => {
+      const route = this.flowRoute(source, destination);
+      if (!route || keys.has(`${source}-${destination}`)) {
+        return;
+      }
+      keys.add(`${source}-${destination}`);
+      flows.push(route);
+    };
+
+    const homeSource = this.dominantPowerSource(snapshot, threshold);
+    if (this.homePowerToDisplay(snapshot) > threshold && homeSource) {
+      add(homeSource, "home");
+    }
+
+    if ((Number(snapshot.batteryPower) || 0) < -threshold) {
+      const batterySource = this.chargingSource(snapshot, threshold);
+      if (batterySource) {
+        add(batterySource, "battery");
+      }
+    }
+
+    if (!this.isOffGrid(snapshot) && (Number(snapshot.gridPower) || 0) < -threshold) {
+      const exportSource = this.exportSource(snapshot, threshold);
+      if (exportSource) {
+        add(exportSource, "grid");
+      }
+    }
+
+    return flows;
+  },
+
+  flowRoute(source, destination) {
+    const routes = {
+      solar: {
+        home: {
+          color: "#ffd84d",
+          d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5 L 781.8 438.6 L 853.1 421.3"
+        },
+        battery: {
+          color: "#ffd84d",
+          d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5 L 760.4 443.2 L 684.9 461.8 Q 672.2 463.1 671.9 472.5"
+        },
+        grid: {
+          color: "#ffd84d",
+          d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5 L 769.3 476.3 L 769.3 494.0 A 5.0 5.0 0 0 1 772.8 504.3 L 894.8 548.2"
+        }
+      },
+      battery: {
+        home: {
+          color: "#4fd26b",
+          d: "M 671.9 472.5 Q 672.2 463.1 684.9 461.8 L 760.4 443.2 L 781.8 438.6 L 853.1 421.3"
+        },
+        grid: {
+          color: "#4fd26b",
+          d: "M 671.9 472.5 Q 672.2 463.1 684.9 461.8 L 760.4 443.2 L 769.3 476.3 L 769.3 494.0 A 5.0 5.0 0 0 1 772.8 504.3 L 894.8 548.2"
+        }
+      },
+      grid: {
+        home: {
+          color: "#9aa0a6",
+          d: "M 894.8 548.2 L 772.8 504.3 A 5.0 5.0 0 0 0 769.3 494.0 L 769.3 476.3 L 781.8 438.6 L 853.1 421.3"
+        },
+        battery: {
+          color: "#9aa0a6",
+          d: "M 894.8 548.2 L 772.8 504.3 A 5.0 5.0 0 0 0 769.3 494.0 L 769.3 476.3 L 760.4 443.2 L 684.9 461.8 Q 672.2 463.1 671.9 472.5"
+        }
+      }
+    };
+
+    const route = routes[source] && routes[source][destination];
+    if (!route) {
+      return null;
+    }
+
+    return {
+      color: route.color,
+      d: route.d,
+      pathLength: 200
+    };
+  },
+
+  dominantPowerSource(snapshot, threshold) {
+    const solarPower = Number(snapshot.solarPower) || 0;
+    const batteryPower = Number(snapshot.batteryPower) || 0;
+    const gridPower = Number(snapshot.gridPower) || 0;
+
+    if (solarPower > threshold && solarPower >= batteryPower && solarPower >= gridPower) {
+      return "solar";
+    }
+    if (batteryPower > threshold && batteryPower >= gridPower) {
+      return "battery";
+    }
+    if (gridPower > threshold) {
+      return "grid";
+    }
+    if (solarPower > threshold) {
+      return "solar";
+    }
+    if (batteryPower > threshold) {
+      return "battery";
+    }
+    return null;
+  },
+
+  chargingSource(snapshot, threshold) {
+    const solarPower = Number(snapshot.solarPower) || 0;
+    const gridPower = Number(snapshot.gridPower) || 0;
+
+    if (solarPower > threshold && solarPower >= gridPower) {
+      return "solar";
+    }
+    if (gridPower > threshold) {
+      return "grid";
+    }
+    return solarPower > threshold ? "solar" : null;
+  },
+
+  exportSource(snapshot, threshold) {
+    const solarPower = Number(snapshot.solarPower) || 0;
+    const batteryPower = Number(snapshot.batteryPower) || 0;
+
+    if (solarPower > threshold && solarPower >= batteryPower) {
+      return "solar";
+    }
+    if (batteryPower > threshold) {
+      return "battery";
+    }
+    return solarPower > threshold ? "solar" : null;
   },
 
   preloadImages() {
