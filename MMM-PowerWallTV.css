@@ -135,8 +135,8 @@
 }
 
 .pwtv-metric {
-  min-width: 110px;
-  min-width: 14.4cqw;
+  min-width: 121px;
+  min-width: 15.84cqw;
   text-align: center;
   transform: translate(-50%, -50%);
   white-space: nowrap;
@@ -145,8 +145,8 @@
 .pwtv-metric-value {
   align-items: center;
   display: flex;
-  font-size: clamp(12px, 2.46vw, 34px);
-  font-size: clamp(12px, 2.7cqw, 34px);
+  font-size: clamp(13px, 2.706vw, 37px);
+  font-size: clamp(13px, 2.97cqw, 37px);
   font-weight: 800;
   justify-content: center;
   line-height: 1;
@@ -154,8 +154,8 @@
 
 .pwtv-metric-label {
   color: rgba(255, 255, 255, 0.64);
-  font-size: clamp(9px, 1.128vw, 17px);
-  font-size: clamp(9px, 1.38cqw, 17px);
+  font-size: clamp(10px, 1.241vw, 19px);
+  font-size: clamp(10px, 1.518cqw, 19px);
   font-weight: 800;
   line-height: 1;
   margin-top: 5px;
@@ -169,7 +169,7 @@
 
 .pwtv-metric-home {
   left: 85%;
-  top: 29%;
+  top: 32%;
 }
 
 .pwtv-metric-battery {
