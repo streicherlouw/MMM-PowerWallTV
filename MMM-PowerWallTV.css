@@ -98,10 +98,10 @@
 }
 
 .pwtv-summary {
-  left: 3.2%;
+  left: 5%;
   max-width: 31%;
   text-align: left;
-  top: 4%;
+  top: 6%;
 }
 
 .pwtv-summary-site,
@@ -173,12 +173,12 @@
 }
 
 .pwtv-metric-battery {
-  left: 43.5%;
+  left: 34%;
   top: 78%;
 }
 
 .pwtv-metric-grid {
-  left: 76%;
+  left: 80%;
   top: 78%;
 }
 
