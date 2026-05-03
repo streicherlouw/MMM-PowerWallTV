@@ -98,7 +98,7 @@
 }
 
 .pwtv-summary {
-  left: 10%;
+  left: 5%;
   max-width: 31%;
   text-align: left;
   top: 6%;
@@ -173,9 +173,14 @@
 }
 
 .pwtv-metric-battery {
-  left: 10%;
+  left: 5%;
+  text-align: left;
   top: 78%;
   transform: translate(0, -50%);
+}
+
+.pwtv-metric-battery .pwtv-metric-value {
+  justify-content: flex-start;
 }
 
 .pwtv-metric-grid {
