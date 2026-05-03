@@ -165,6 +165,7 @@
 .pwtv-metric-solar {
   left: 73%;
   top: 19%;
+  transform: translate(-50%, -50%) scale(1.2);
 }
 
 .pwtv-metric-home {
@@ -172,7 +173,8 @@
   right: 5%;
   text-align: right;
   top: 34%;
-  transform: translate(0, -50%);
+  transform: translate(0, -50%) scale(1.2);
+  transform-origin: right center;
 }
 
 .pwtv-metric-home .pwtv-metric-value {
