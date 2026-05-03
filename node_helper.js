@@ -33,7 +33,7 @@ module.exports = NodeHelper.create({
     const normalized = this.normalizeConfig(config);
     let snapshot;
 
-    if (normalized.mode === "demo" || normalized.local.gatewayIP.toLowerCase() === "demo") {
+    if (normalized.mode === "demo" || (normalized.mode === "local" && normalized.local.gatewayIP.toLowerCase() === "demo")) {
       snapshot = this.demoSnapshot(normalized);
     } else if (normalized.mode === "fleet") {
       snapshot = await this.fetchFleetSnapshot(normalized);
