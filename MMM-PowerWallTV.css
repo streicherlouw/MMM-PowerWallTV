@@ -1,0 +1,277 @@
+.pwtv {
+  --pwtv-width: 1050px;
+  --pwtv-scale: 1;
+  --pwtv-x: 0px;
+  --pwtv-y: 0px;
+  box-sizing: border-box;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: 0;
+  max-width: min(96vw, var(--pwtv-width));
+  transform: translate(var(--pwtv-x), var(--pwtv-y)) scale(var(--pwtv-scale));
+  transform-origin: center center;
+  width: var(--pwtv-width);
+}
+
+.pwtv *,
+.pwtv *::before,
+.pwtv *::after {
+  box-sizing: border-box;
+}
+
+.pwtv-scene {
+  aspect-ratio: 16 / 9;
+  background: #161718;
+  border-radius: 8px;
+  contain: layout paint;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.pwtv-home-image {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  width: 100%;
+}
+
+.pwtv-flow-layer {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.pwtv-flow {
+  animation: pwtv-flow 2.8s linear infinite;
+  fill: none;
+  filter: drop-shadow(0 0 5px var(--flow-color));
+  stroke: var(--flow-color);
+  stroke-dasharray: 70 900;
+  stroke-linecap: round;
+  stroke-width: 7;
+}
+
+.pwtv-flow-reverse {
+  animation-direction: reverse;
+}
+
+.pwtv-flow-paused .pwtv-flow {
+  animation: none;
+  stroke-dasharray: none;
+  opacity: 0.85;
+}
+
+@keyframes pwtv-flow {
+  from {
+    stroke-dashoffset: 900;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.pwtv-summary,
+.pwtv-metric,
+.pwtv-loading,
+.pwtv-history {
+  position: absolute;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.52);
+}
+
+.pwtv-summary {
+  left: 20%;
+  max-width: 26%;
+  text-align: left;
+  top: 10.5%;
+}
+
+.pwtv-summary-site,
+.pwtv-summary-energy,
+.pwtv-loading-title {
+  font-size: clamp(14px, 2.1vw, 26px);
+  font-weight: 750;
+  line-height: 1.05;
+}
+
+.pwtv-summary-label,
+.pwtv-summary-message,
+.pwtv-loading-detail {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: clamp(9px, 0.98vw, 14px);
+  font-weight: 750;
+  line-height: 1.18;
+  margin-top: 5px;
+}
+
+.pwtv-summary-message {
+  color: rgba(90, 220, 112, 0.8);
+  max-width: 280px;
+}
+
+.pwtv-summary-message.pwtv-error {
+  color: #ff6b6b;
+  opacity: 1;
+}
+
+.pwtv-metric {
+  min-width: 130px;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.pwtv-metric-value {
+  align-items: center;
+  display: flex;
+  font-size: clamp(15px, 2.05vw, 28px);
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+}
+
+.pwtv-metric-label {
+  color: rgba(255, 255, 255, 0.64);
+  font-size: clamp(9px, 0.94vw, 14px);
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 5px;
+}
+
+.pwtv-metric-solar {
+  left: 58.7%;
+  top: 10%;
+}
+
+.pwtv-metric-home {
+  left: 75%;
+  top: 20%;
+}
+
+.pwtv-metric-battery {
+  left: 53%;
+  top: 90%;
+}
+
+.pwtv-metric-grid {
+  left: 78%;
+  top: 90%;
+}
+
+.pwtv-metric-vehicle {
+  left: 39.6%;
+  top: 10%;
+}
+
+.pwtv-battery-arrow {
+  display: inline-block;
+  height: 0;
+  margin: 0 2px;
+  vertical-align: middle;
+  width: 0;
+}
+
+.pwtv-arrow-down {
+  border-left: 0.22em solid transparent;
+  border-right: 0.22em solid transparent;
+  border-top: 0.36em solid #4fd26b;
+}
+
+.pwtv-arrow-up {
+  border-bottom: 0.36em solid #4fd26b;
+  border-left: 0.22em solid transparent;
+  border-right: 0.22em solid transparent;
+}
+
+.pwtv-arrow-idle {
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  height: 0.18em;
+  width: 0.18em;
+}
+
+.pwtv-renewables-low {
+  color: #aa7a4a;
+}
+
+.pwtv-renewables-mid {
+  color: #ff9b4c;
+}
+
+.pwtv-renewables-good {
+  color: #ffd84d;
+}
+
+.pwtv-renewables-great {
+  color: #4fd26b;
+}
+
+.pwtv-battery-fill {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  height: 7.6%;
+  left: 51.2%;
+  overflow: hidden;
+  position: absolute;
+  top: 67.1%;
+  width: max(4px, 0.35%);
+}
+
+.pwtv-battery-fill-inner {
+  background: linear-gradient(180deg, #61df7a, #2aa54a);
+  border-radius: inherit;
+  bottom: 0;
+  box-shadow: 0 0 10px rgba(79, 210, 107, 0.75);
+  left: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.pwtv-off-grid {
+  left: 65.1%;
+  max-width: 10%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.pwtv-history {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  bottom: 3%;
+  height: 11%;
+  left: 3%;
+  padding: 8px;
+  width: 28%;
+}
+
+.pwtv-history svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.pwtv-loading {
+  left: 50%;
+  text-align: center;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 700px) {
+  .pwtv {
+    max-width: 98vw;
+  }
+
+  .pwtv-summary {
+    left: 4%;
+    max-width: 34%;
+    top: 4%;
+  }
+
+  .pwtv-metric {
+    min-width: 92px;
+  }
+}

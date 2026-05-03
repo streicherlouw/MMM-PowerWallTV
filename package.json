@@ -1,0 +1,16 @@
+{
+  "name": "mmm-powerwalltv",
+  "version": "0.1.0",
+  "description": "MagicMirror module inspired by Powerwall-TV for Tesla Powerwall dashboards.",
+  "main": "MMM-PowerWallTV.js",
+  "keywords": [
+    "magicmirror",
+    "powerwall",
+    "tesla",
+    "energy"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "test": "node --check MMM-PowerWallTV.js && node --check node_helper.js"
+  }
+}
