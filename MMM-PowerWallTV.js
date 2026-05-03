@@ -198,7 +198,14 @@ Module.register("MMM-PowerWallTV", {
     if (Number.isFinite(snapshot.solarEnergyExportedWh) && snapshot.solarEnergyExportedWh > 0) {
       const kwh = snapshot.solarEnergyExportedWh / 1000;
       summary.appendChild(this.el("div", "pwtv-summary-energy", `${this.formatNumber(kwh)} kWh`));
-      summary.appendChild(this.el("div", "pwtv-summary-label", snapshot.solarEnergyToday ? "ENERGY GENERATED TODAY" : "ENERGY GENERATED"));
+      const energyLabel = this.el("div", "pwtv-summary-label");
+      if (snapshot.solarEnergyToday) {
+        energyLabel.appendChild(this.el("div", "", "ENERGY GENERATED"));
+        energyLabel.appendChild(this.el("div", "", "TODAY"));
+      } else {
+        energyLabel.textContent = "ENERGY GENERATED";
+      }
+      summary.appendChild(energyLabel);
     }
 
     const message = this.errorMessage || snapshot.errorMessage || this.infoMessage;
