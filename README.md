@@ -69,7 +69,7 @@ Wall Connector support is optional and uses `GET http://<wallConnectorIP>/api/1/
 
 ## Fleet API Token Config
 
-This module does not implement Tesla OAuth. If you already manage a Fleet API token elsewhere, you can display live status with:
+This module does not implement the Tesla OAuth browser login flow, but it can use an existing Fleet API access token or refresh token. Tesla refresh tokens are single-use, so the module saves the rotated token to `.pwtv-fleet-tokens.json` by default.
 
 ```js
 {
@@ -79,13 +79,19 @@ This module does not implement Tesla OAuth. If you already manage a Fleet API to
     mode: "fleet",
     fleet: {
       baseURL: "https://fleet-api.prd.na.vn.cloud.tesla.com",
-      accessToken: "paste-token-here",
+      accessToken: "paste-current-access-token-here",
+      refreshToken: "paste-refresh-token-here",
+      clientId: "your-tesla-application-client-id",
+      tokenStorePath: ".pwtv-fleet-tokens.json",
+      persistTokens: true,
       energySiteId: "123456789",
       siteName: "Home sweet home"
     }
   }
 }
 ```
+
+If `accessToken` is present, the module can usually infer `clientId` from the token's `azp` claim. If you configure only `refreshToken`, set `clientId` explicitly.
 
 ## Options
 
@@ -110,6 +116,20 @@ This module does not implement Tesla OAuth. If you already manage a Fleet API to
 | `horizontalOffset` | `0` | Pixel offset for placement tuning |
 | `verticalOffset` | `0` | Pixel offset for placement tuning |
 
+Fleet-specific options:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `fleet.baseURL` | `"https://fleet-api.prd.na.vn.cloud.tesla.com"` | Fleet API region URL; this is the current Australia URL |
+| `fleet.accessToken` | `""` | Optional current access token |
+| `fleet.refreshToken` | `""` | Optional refresh token used to obtain new access tokens |
+| `fleet.clientId` | `""` | Required for refresh when it cannot be inferred from `accessToken` |
+| `fleet.tokenURL` | `"https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"` | Tesla token endpoint |
+| `fleet.tokenStorePath` | `".pwtv-fleet-tokens.json"` | Local file for rotated access/refresh tokens |
+| `fleet.persistTokens` | `true` | Save refreshed tokens to `tokenStorePath` |
+| `fleet.energySiteId` | `""` | Tesla energy site ID |
+| `fleet.siteName` | `""` | Label shown in the module |
+
 For a lower-third tile, prefer:
 
 ```js
@@ -121,6 +141,6 @@ config: {
 
 ## Notes
 
-Powerwall Gateway certificates are usually self-signed, so `rejectUnauthorized: false` is the practical default for local mode. Keep your MagicMirror `config.js` private because it contains Gateway credentials or Fleet API tokens.
+Powerwall Gateway certificates are usually self-signed, so `rejectUnauthorized: false` is the practical default for local mode. Keep your MagicMirror `config.js` and `.pwtv-fleet-tokens.json` private because they contain Gateway credentials or Fleet API tokens.
 
 Visual assets are from the MIT-licensed Powerwall-TV project; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

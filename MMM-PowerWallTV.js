@@ -36,6 +36,11 @@ Module.register("MMM-PowerWallTV", {
     fleet: {
       baseURL: "https://fleet-api.prd.na.vn.cloud.tesla.com",
       accessToken: "",
+      refreshToken: "",
+      clientId: "",
+      tokenURL: "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token",
+      tokenStorePath: ".pwtv-fleet-tokens.json",
+      persistTokens: true,
       energySiteId: "",
       siteName: ""
     },

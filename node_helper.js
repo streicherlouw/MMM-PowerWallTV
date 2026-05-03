@@ -1,11 +1,14 @@
 const NodeHelper = require("node_helper");
+const fs = require("fs");
 const http = require("http");
 const https = require("https");
+const path = require("path");
 
 module.exports = NodeHelper.create({
   start() {
     this.localSessions = new Map();
     this.gridCache = new Map();
+    this.fleetTokenMemory = new Map();
   },
 
   socketNotificationReceived(notification, payload) {
@@ -79,6 +82,11 @@ module.exports = NodeHelper.create({
     const fleet = Object.assign({
       baseURL: "https://fleet-api.prd.na.vn.cloud.tesla.com",
       accessToken: "",
+      refreshToken: "",
+      clientId: "",
+      tokenURL: "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token",
+      tokenStorePath: ".pwtv-fleet-tokens.json",
+      persistTokens: true,
       energySiteId: "",
       siteName: ""
     }, config.fleet || {});
@@ -224,24 +232,24 @@ module.exports = NodeHelper.create({
   },
 
   async fetchFleetSnapshot(config) {
-    const token = String(config.fleet.accessToken || "").trim();
     const energySiteId = String(config.fleet.energySiteId || "").trim();
-    if (!token) {
-      throw new Error("Missing fleet.accessToken.");
-    }
     if (!energySiteId) {
       throw new Error("Missing fleet.energySiteId.");
     }
 
     const baseURL = String(config.fleet.baseURL || "").replace(/\/$/, "");
-    const live = await this.requestJson(`${baseURL}/api/1/energy_sites/${energySiteId}/live_status`, {
-      headers: {
-        Authorization: `Bearer ${token}`
+    let tokenState = await this.getFleetToken(config);
+    let live;
+
+    try {
+      live = await this.fetchFleetLiveStatus(config, baseURL, energySiteId, tokenState.accessToken);
+    } catch (error) {
+      if (!this.isAuthError(error) || !tokenState.refreshToken) {
+        throw error;
       }
-    }, {
-      rejectUnauthorized: true,
-      timeoutMs: config.timeoutMs
-    });
+      tokenState = await this.getFleetToken(config, true);
+      live = await this.fetchFleetLiveStatus(config, baseURL, energySiteId, tokenState.accessToken);
+    }
 
     const response = live.response || {};
     return {
@@ -261,6 +269,180 @@ module.exports = NodeHelper.create({
         live
       }
     };
+  },
+
+  fetchFleetLiveStatus(config, baseURL, energySiteId, accessToken) {
+    if (!accessToken) {
+      throw new Error("Missing fleet.accessToken or refreshable fleet.refreshToken.");
+    }
+
+    return this.requestJson(`${baseURL}/api/1/energy_sites/${energySiteId}/live_status`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }, {
+      rejectUnauthorized: true,
+      timeoutMs: config.timeoutMs
+    });
+  },
+
+  async getFleetToken(config, forceRefresh = false) {
+    const stored = this.loadFleetTokenStore(config);
+    const accessToken = String(stored.accessToken || config.fleet.accessToken || "").trim();
+    const refreshToken = String(stored.refreshToken || config.fleet.refreshToken || "").trim();
+    const clientId = String(config.fleet.clientId || stored.clientId || this.clientIdFromAccessToken(accessToken) || "").trim();
+    const expiresAt = Number(stored.expiresAt) || this.expiresAtFromAccessToken(accessToken) || 0;
+    const refreshMarginMs = 60 * 1000;
+
+    if (!forceRefresh && accessToken && (!expiresAt || Date.now() < expiresAt - refreshMarginMs)) {
+      return {
+        accessToken,
+        refreshToken,
+        clientId,
+        expiresAt
+      };
+    }
+
+    if (!refreshToken) {
+      if (accessToken) {
+        return {
+          accessToken,
+          refreshToken: "",
+          clientId,
+          expiresAt
+        };
+      }
+      throw new Error("Missing fleet.accessToken or fleet.refreshToken.");
+    }
+
+    if (!clientId) {
+      throw new Error("Missing fleet.clientId for refresh-token exchange.");
+    }
+
+    return this.refreshFleetToken(config, refreshToken, clientId);
+  },
+
+  async refreshFleetToken(config, refreshToken, clientId) {
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: clientId,
+      refresh_token: refreshToken
+    }).toString();
+
+    const tokenURL = String(config.fleet.tokenURL || "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token");
+    const payload = await this.requestJson(tokenURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": Buffer.byteLength(body)
+      },
+      body
+    }, {
+      rejectUnauthorized: true,
+      timeoutMs: config.timeoutMs
+    });
+
+    const accessToken = String(payload.access_token || "").trim();
+    const nextRefreshToken = String(payload.refresh_token || refreshToken).trim();
+    if (!accessToken) {
+      throw new Error("Refresh-token exchange did not return an access token.");
+    }
+
+    const expiresAt = Number(payload.expires_in)
+      ? Date.now() + (Number(payload.expires_in) * 1000)
+      : this.expiresAtFromAccessToken(accessToken);
+
+    const tokenState = {
+      accessToken,
+      refreshToken: nextRefreshToken,
+      clientId,
+      expiresAt,
+      updatedAt: new Date().toISOString()
+    };
+
+    this.saveFleetTokenStore(config, tokenState);
+    return tokenState;
+  },
+
+  loadFleetTokenStore(config) {
+    const tokenStorePath = this.resolveTokenStorePath(config);
+    const memoryKey = tokenStorePath || "default";
+    const memoryTokenState = this.fleetTokenMemory.get(memoryKey);
+    if (memoryTokenState) {
+      return memoryTokenState;
+    }
+
+    if (!config.fleet.persistTokens || !tokenStorePath || !fs.existsSync(tokenStorePath)) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(fs.readFileSync(tokenStorePath, "utf8"));
+    } catch (error) {
+      throw new Error(`Unable to read Fleet token store ${tokenStorePath}: ${error.message}`);
+    }
+  },
+
+  saveFleetTokenStore(config, tokenState) {
+    const tokenStorePath = this.resolveTokenStorePath(config);
+    const memoryKey = tokenStorePath || "default";
+    this.fleetTokenMemory.set(memoryKey, tokenState);
+
+    if (!config.fleet.persistTokens) {
+      return;
+    }
+
+    if (!tokenStorePath) {
+      return;
+    }
+
+    const directory = path.dirname(tokenStorePath);
+    fs.mkdirSync(directory, { recursive: true });
+    const temporaryPath = `${tokenStorePath}.tmp`;
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(tokenState, null, 2)}\n`, { mode: 0o600 });
+    fs.renameSync(temporaryPath, tokenStorePath);
+    try {
+      fs.chmodSync(tokenStorePath, 0o600);
+    } catch (error) {
+      // Best-effort permissions; Windows and some filesystems may not support chmod.
+    }
+  },
+
+  resolveTokenStorePath(config) {
+    const configuredPath = String(config.fleet.tokenStorePath || "").trim();
+    if (!configuredPath) {
+      return "";
+    }
+    return path.isAbsolute(configuredPath) ? configuredPath : path.join(__dirname, configuredPath);
+  },
+
+  isAuthError(error) {
+    return error && (error.statusCode === 401 || error.statusCode === 403);
+  },
+
+  clientIdFromAccessToken(accessToken) {
+    const claims = this.decodeJwt(accessToken);
+    return claims ? claims.azp || claims.client_id || "" : "";
+  },
+
+  expiresAtFromAccessToken(accessToken) {
+    const claims = this.decodeJwt(accessToken);
+    return claims && Number(claims.exp) ? Number(claims.exp) * 1000 : 0;
+  },
+
+  decodeJwt(token) {
+    const parts = String(token || "").split(".");
+    if (parts.length < 2) {
+      return null;
+    }
+
+    try {
+      const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+      return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+    } catch (error) {
+      return null;
+    }
   },
 
   async fetchElectricityMaps(config) {
@@ -362,7 +544,10 @@ module.exports = NodeHelper.create({
         res.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
           if (res.statusCode < 200 || res.statusCode >= 300) {
-            reject(new Error(`${method} ${url.pathname} failed with ${res.statusCode}: ${text.slice(0, 180)}`));
+            const error = new Error(`${method} ${url.pathname} failed with ${res.statusCode}: ${text.slice(0, 180)}`);
+            error.statusCode = res.statusCode;
+            error.responseText = text;
+            reject(error);
             return;
           }
 
