@@ -95,6 +95,7 @@ This module does not implement Tesla OAuth. If you already manage a Fleet API to
 | `updateInterval` | `10000` | Refresh interval in milliseconds |
 | `width` | `"100%"` | CSS width for the 16:9 scene |
 | `maxWidth` | `"1050px"` | Maximum scene width; use this to size lower-third tiles |
+| `cornerRadius` | `"18px"` | Rounded corner radius for the whole module |
 | `domUpdateAnimationSpeed` | `0` | MagicMirror redraw fade speed; keep at `0` to avoid flashing every refresh |
 | `animation` | `true` | Enables animated power-flow traces |
 | `showSummary` | `true` | Shows site name, generated energy, and status message |

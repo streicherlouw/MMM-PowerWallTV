@@ -7,6 +7,7 @@ Module.register("MMM-PowerWallTV", {
     retryInterval: 30 * 1000,
     width: "100%",
     maxWidth: "1050px",
+    cornerRadius: "18px",
     domUpdateAnimationSpeed: 0,
     animation: true,
     showSummary: true,
@@ -116,6 +117,7 @@ Module.register("MMM-PowerWallTV", {
     const wrapper = this.el("div", "pwtv");
     wrapper.style.setProperty("--pwtv-width", this.config.width);
     wrapper.style.setProperty("--pwtv-max-width", this.config.maxWidth);
+    wrapper.style.setProperty("--pwtv-radius", this.config.cornerRadius);
     wrapper.style.setProperty("--pwtv-scale", String(this.config.scale));
     wrapper.style.setProperty("--pwtv-x", `${this.config.horizontalOffset}px`);
     wrapper.style.setProperty("--pwtv-y", `${this.config.verticalOffset}px`);
