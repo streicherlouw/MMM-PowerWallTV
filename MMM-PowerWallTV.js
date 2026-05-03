@@ -5,7 +5,9 @@ Module.register("MMM-PowerWallTV", {
     mode: "demo",
     updateInterval: 10 * 1000,
     retryInterval: 30 * 1000,
-    width: "1050px",
+    width: "100%",
+    maxWidth: "1050px",
+    domUpdateAnimationSpeed: 0,
     animation: true,
     showSummary: true,
     showGridCarbon: true,
@@ -47,6 +49,7 @@ Module.register("MMM-PowerWallTV", {
     this.history = [];
     this.fetchTimer = null;
     this.instanceId = this.identifier || this.name;
+    this.preloadImages();
     this.fetchNow();
   },
 
@@ -76,7 +79,7 @@ Module.register("MMM-PowerWallTV", {
       this.infoMessage = payload.snapshot.infoMessage || null;
       this.snapshot = payload.snapshot;
       this.recordHistory(payload.snapshot);
-      this.updateDom(650);
+      this.updateDom(this.config.domUpdateAnimationSpeed);
       this.scheduleFetch(this.config.updateInterval);
     }
 
@@ -84,7 +87,7 @@ Module.register("MMM-PowerWallTV", {
       this.loaded = true;
       this.errorMessage = payload.error || "Unable to fetch Powerwall data.";
       this.infoMessage = null;
-      this.updateDom(650);
+      this.updateDom(this.config.domUpdateAnimationSpeed);
       this.scheduleFetch(this.config.retryInterval);
     }
   },
@@ -112,6 +115,7 @@ Module.register("MMM-PowerWallTV", {
   getDom() {
     const wrapper = this.el("div", "pwtv");
     wrapper.style.setProperty("--pwtv-width", this.config.width);
+    wrapper.style.setProperty("--pwtv-max-width", this.config.maxWidth);
     wrapper.style.setProperty("--pwtv-scale", String(this.config.scale));
     wrapper.style.setProperty("--pwtv-x", `${this.config.horizontalOffset}px`);
     wrapper.style.setProperty("--pwtv-y", `${this.config.verticalOffset}px`);
@@ -250,30 +254,30 @@ Module.register("MMM-PowerWallTV", {
       {
         active: snapshot.solarPower > threshold,
         color: "#ffd84d",
-        d: "M 766 260 C 786 330 789 402 781 505"
+        d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5"
       },
       {
         active: this.homePowerToDisplay(snapshot) > threshold,
         color: this.houseFlowColor(snapshot),
-        d: "M 780 505 L 936 464"
+        d: "M 781.8 438.6 L 853.1 421.3"
       },
       {
         active: Math.abs(snapshot.batteryPower) > threshold,
         reverse: snapshot.batteryPower < 0,
         color: snapshot.batteryPower > 0 ? "#4fd26b" : this.chargingColor(snapshot),
-        d: "M 693 540 Q 708 496 780 505"
+        d: "M 671.9 472.5 Q 672.2 463.1 684.9 461.8 L 760.4 443.2"
       },
       {
         active: !this.isOffGrid(snapshot) && Math.abs(snapshot.gridPower) > threshold,
-        reverse: snapshot.gridPower < 0,
+        reverse: snapshot.gridPower > 0,
         color: snapshot.gridPower > 0 ? "#9aa0a6" : this.gridExportColor(snapshot),
-        d: "M 780 505 C 836 548 909 604 1012 640"
+        d: "M 769.3 476.3 L 769.3 494.0 A 5.0 5.0 0 0 1 772.8 504.3 L 894.8 548.2"
       },
       {
         active: this.wallConnectorPower(snapshot) > threshold,
         reverse: true,
         color: this.houseFlowColor(snapshot),
-        d: "M 575 522 C 552 471 535 410 512 344"
+        d: "M 486.4 469.5 C 482.6 460.4 478.7 460.4 478.7 423.6"
       }
     ];
 
@@ -284,11 +288,26 @@ Module.register("MMM-PowerWallTV", {
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("class", `pwtv-flow${flow.reverse ? " pwtv-flow-reverse" : ""}`);
       path.setAttribute("d", flow.d);
+      path.setAttribute("pathLength", "100");
       path.style.setProperty("--flow-color", flow.color);
       svg.appendChild(path);
     });
 
     return svg;
+  },
+
+  preloadImages() {
+    this.preloadedImages = [
+      "home.png",
+      "home-charger.png",
+      "home-charger-empty.png",
+      "home-charger-cybertruck.png",
+      "off-grid.png"
+    ].map((name) => {
+      const image = new Image();
+      image.src = this.file(`assets/${name}`);
+      return image;
+    });
   },
 
   renderHistory() {

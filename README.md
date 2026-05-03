@@ -25,7 +25,8 @@ No npm dependencies are required.
   position: "fullscreen_above",
   config: {
     mode: "demo",
-    width: "1050px",
+    width: "100%",
+    maxWidth: "1050px",
     showHistory: false
   }
 }
@@ -39,7 +40,8 @@ No npm dependencies are required.
   position: "fullscreen_above",
   config: {
     mode: "local",
-    width: "1050px",
+    width: "100%",
+    maxWidth: "1050px",
     local: {
       gatewayIP: "192.168.1.50",
       email: "you@example.com",
@@ -91,7 +93,9 @@ This module does not implement Tesla OAuth. If you already manage a Fleet API to
 | --- | --- | --- |
 | `mode` | `"demo"` | `"demo"`, `"local"`, or `"fleet"` |
 | `updateInterval` | `10000` | Refresh interval in milliseconds |
-| `width` | `"1050px"` | CSS width for the 16:9 scene |
+| `width` | `"100%"` | CSS width for the 16:9 scene |
+| `maxWidth` | `"1050px"` | Maximum scene width; use this to size lower-third tiles |
+| `domUpdateAnimationSpeed` | `0` | MagicMirror redraw fade speed; keep at `0` to avoid flashing every refresh |
 | `animation` | `true` | Enables animated power-flow traces |
 | `showSummary` | `true` | Shows site name, generated energy, and status message |
 | `showGridCarbon` | `true` | Shows renewables percentage and carbon intensity when electricityMaps is configured |
@@ -101,6 +105,15 @@ This module does not implement Tesla OAuth. If you already manage a Fleet API to
 | `scale` | `1` | Scales the scene without changing layout |
 | `horizontalOffset` | `0` | Pixel offset for placement tuning |
 | `verticalOffset` | `0` | Pixel offset for placement tuning |
+
+For a lower-third tile, prefer:
+
+```js
+config: {
+  width: "100%",
+  maxWidth: "970px"
+}
+```
 
 ## Notes
 

@@ -1,13 +1,15 @@
 .pwtv {
   --pwtv-width: 1050px;
+  --pwtv-max-width: 1050px;
   --pwtv-scale: 1;
   --pwtv-x: 0px;
   --pwtv-y: 0px;
   box-sizing: border-box;
+  container-type: inline-size;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   letter-spacing: 0;
-  max-width: min(96vw, var(--pwtv-width));
+  max-width: min(100%, var(--pwtv-max-width));
   transform: translate(var(--pwtv-x), var(--pwtv-y)) scale(var(--pwtv-scale));
   transform-origin: center center;
   width: var(--pwtv-width);
@@ -48,9 +50,9 @@
   fill: none;
   filter: drop-shadow(0 0 5px var(--flow-color));
   stroke: var(--flow-color);
-  stroke-dasharray: 70 900;
+  stroke-dasharray: 26 74;
   stroke-linecap: round;
-  stroke-width: 7;
+  stroke-width: 5.2;
 }
 
 .pwtv-flow-reverse {
@@ -65,7 +67,7 @@
 
 @keyframes pwtv-flow {
   from {
-    stroke-dashoffset: 900;
+    stroke-dashoffset: 100;
   }
   to {
     stroke-dashoffset: 0;
@@ -90,7 +92,8 @@
 .pwtv-summary-site,
 .pwtv-summary-energy,
 .pwtv-loading-title {
-  font-size: clamp(14px, 2.1vw, 26px);
+  font-size: clamp(11px, 2.1vw, 26px);
+  font-size: clamp(11px, 2.45cqw, 26px);
   font-weight: 750;
   line-height: 1.05;
 }
@@ -99,7 +102,8 @@
 .pwtv-summary-message,
 .pwtv-loading-detail {
   color: rgba(255, 255, 255, 0.62);
-  font-size: clamp(9px, 0.98vw, 14px);
+  font-size: clamp(7px, 0.98vw, 14px);
+  font-size: clamp(7px, 1.2cqw, 14px);
   font-weight: 750;
   line-height: 1.18;
   margin-top: 5px;
@@ -116,7 +120,8 @@
 }
 
 .pwtv-metric {
-  min-width: 130px;
+  min-width: 92px;
+  min-width: 12cqw;
   text-align: center;
   transform: translate(-50%, -50%);
   white-space: nowrap;
@@ -125,7 +130,8 @@
 .pwtv-metric-value {
   align-items: center;
   display: flex;
-  font-size: clamp(15px, 2.05vw, 28px);
+  font-size: clamp(10px, 2.05vw, 28px);
+  font-size: clamp(10px, 2.25cqw, 28px);
   font-weight: 800;
   justify-content: center;
   line-height: 1;
@@ -133,10 +139,12 @@
 
 .pwtv-metric-label {
   color: rgba(255, 255, 255, 0.64);
-  font-size: clamp(9px, 0.94vw, 14px);
+  font-size: clamp(7px, 0.94vw, 14px);
+  font-size: clamp(7px, 1.15cqw, 14px);
   font-weight: 800;
   line-height: 1;
   margin-top: 5px;
+  margin-top: 0.45cqw;
 }
 
 .pwtv-metric-solar {
