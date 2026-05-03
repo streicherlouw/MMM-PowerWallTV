@@ -9,6 +9,7 @@ module.exports = NodeHelper.create({
     this.localSessions = new Map();
     this.gridCache = new Map();
     this.fleetTokenMemory = new Map();
+    this.fleetSolarEnergyCache = new Map();
   },
 
   socketNotificationReceived(notification, payload) {
@@ -240,6 +241,7 @@ module.exports = NodeHelper.create({
     const baseURL = String(config.fleet.baseURL || "").replace(/\/$/, "");
     let tokenState = await this.getFleetToken(config);
     let live;
+    let solarEnergyTodayWh = 0;
 
     try {
       live = await this.fetchFleetLiveStatus(config, baseURL, energySiteId, tokenState.accessToken);
@@ -251,6 +253,9 @@ module.exports = NodeHelper.create({
       live = await this.fetchFleetLiveStatus(config, baseURL, energySiteId, tokenState.accessToken);
     }
 
+    solarEnergyTodayWh = await this.fetchFleetSolarEnergyToday(config, baseURL, energySiteId, tokenState.accessToken)
+      .catch(() => 0);
+
     const response = live.response || {};
     return {
       source: "fleet",
@@ -261,7 +266,7 @@ module.exports = NodeHelper.create({
       gridPower: Number(response.grid_power) || 0,
       batteryPercentage: Number(response.percentage_charged) || 0,
       batteryCount: Number(response.battery_count) || 0,
-      solarEnergyExportedWh: 0,
+      solarEnergyExportedWh: solarEnergyTodayWh,
       solarEnergyToday: true,
       gridStatus: response.grid_status || "",
       wallConnectors: Array.isArray(response.wall_connectors) ? response.wall_connectors : [],
@@ -284,6 +289,59 @@ module.exports = NodeHelper.create({
       rejectUnauthorized: true,
       timeoutMs: config.timeoutMs
     });
+  },
+
+  async fetchFleetSolarEnergyToday(config, baseURL, energySiteId, accessToken) {
+    if (!accessToken) {
+      return 0;
+    }
+
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const timeZone = this.localTimeZone();
+    const cacheKey = `${baseURL}|${energySiteId}|${startOfDay.toISOString()}|${timeZone}`;
+    const cached = this.fleetSolarEnergyCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    const params = new URLSearchParams({
+      kind: "energy",
+      period: "day",
+      start_date: startOfDay.toISOString(),
+      end_date: now.toISOString(),
+      time_zone: timeZone
+    });
+
+    const payload = await this.requestJson(`${baseURL}/api/1/energy_sites/${energySiteId}/calendar_history?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }, {
+      rejectUnauthorized: true,
+      timeoutMs: config.timeoutMs
+    });
+
+    const points = payload && payload.response && Array.isArray(payload.response.time_series)
+      ? payload.response.time_series
+      : [];
+
+    const value = points.reduce((total, point) => total + (Number(point.solar_energy_exported) || 0), 0);
+    this.fleetSolarEnergyCache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + 60 * 1000
+    });
+    return value;
+  },
+
+  localTimeZone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "Etc/UTC";
+    } catch (error) {
+      return "Etc/UTC";
+    }
   },
 
   async getFleetToken(config, forceRefresh = false) {

@@ -93,6 +93,8 @@ This module does not implement the Tesla OAuth browser login flow, but it can us
 
 If `accessToken` is present, the module can usually infer `clientId` from the token's `azp` claim. If you configure only `refreshToken`, set `clientId` explicitly.
 
+Fleet mode also fetches `calendar_history?kind=energy&period=day` to show the "ENERGY GENERATED TODAY" summary.
+
 ## Options
 
 | Option | Default | Notes |
