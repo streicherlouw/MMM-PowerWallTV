@@ -6,8 +6,8 @@
   --pwtv-x: 0px;
   --pwtv-y: 0px;
   --pwtv-image-scale: 1.2;
-  --pwtv-image-x: -8%;
-  --pwtv-image-y: 0%;
+  --pwtv-image-x: -4%;
+  --pwtv-image-y: 3%;
   border-radius: var(--pwtv-radius);
   box-sizing: border-box;
   container-type: inline-size;
@@ -107,8 +107,8 @@
 .pwtv-summary-site,
 .pwtv-summary-energy,
 .pwtv-loading-title {
-  font-size: clamp(11px, 2.1vw, 26px);
-  font-size: clamp(11px, 2.45cqw, 26px);
+  font-size: clamp(17px, 3.15vw, 39px);
+  font-size: clamp(17px, 3.675cqw, 39px);
   font-weight: 750;
   line-height: 1.05;
 }
@@ -117,8 +117,8 @@
 .pwtv-summary-message,
 .pwtv-loading-detail {
   color: rgba(255, 255, 255, 0.62);
-  font-size: clamp(7px, 0.98vw, 14px);
-  font-size: clamp(7px, 1.2cqw, 14px);
+  font-size: clamp(11px, 1.47vw, 21px);
+  font-size: clamp(11px, 1.8cqw, 21px);
   font-weight: 750;
   line-height: 1.18;
   margin-top: 5px;
@@ -135,8 +135,8 @@
 }
 
 .pwtv-metric {
-  min-width: 92px;
-  min-width: 12cqw;
+  min-width: 138px;
+  min-width: 18cqw;
   text-align: center;
   transform: translate(-50%, -50%);
   white-space: nowrap;
@@ -145,8 +145,8 @@
 .pwtv-metric-value {
   align-items: center;
   display: flex;
-  font-size: clamp(10px, 2.05vw, 28px);
-  font-size: clamp(10px, 2.25cqw, 28px);
+  font-size: clamp(15px, 3.075vw, 42px);
+  font-size: clamp(15px, 3.375cqw, 42px);
   font-weight: 800;
   justify-content: center;
   line-height: 1;
@@ -154,8 +154,8 @@
 
 .pwtv-metric-label {
   color: rgba(255, 255, 255, 0.64);
-  font-size: clamp(7px, 0.94vw, 14px);
-  font-size: clamp(7px, 1.15cqw, 14px);
+  font-size: clamp(11px, 1.41vw, 21px);
+  font-size: clamp(11px, 1.725cqw, 21px);
   font-weight: 800;
   line-height: 1;
   margin-top: 5px;
@@ -163,23 +163,23 @@
 }
 
 .pwtv-metric-solar {
-  left: 58.7%;
-  top: 10%;
+  left: 63%;
+  top: 17%;
 }
 
 .pwtv-metric-home {
-  left: 75%;
-  top: 20%;
+  left: 80%;
+  top: 29%;
 }
 
 .pwtv-metric-battery {
-  left: 53%;
-  top: 90%;
+  left: 43.5%;
+  top: 78%;
 }
 
 .pwtv-metric-grid {
-  left: 78%;
-  top: 90%;
+  left: 76%;
+  top: 78%;
 }
 
 .pwtv-metric-vehicle {

@@ -99,13 +99,13 @@ This module does not implement Tesla OAuth. If you already manage a Fleet API to
 | `domUpdateAnimationSpeed` | `0` | MagicMirror redraw fade speed; keep at `0` to avoid flashing every refresh |
 | `animation` | `true` | Enables animated power-flow traces |
 | `imageScale` | `1.2` | Zooms the home scene artwork and aligned overlays |
-| `imageHorizontalOffset` | `"-8%"` | Moves the zoomed home scene left/right |
-| `imageVerticalOffset` | `"0%"` | Moves the zoomed home scene up/down |
+| `imageHorizontalOffset` | `"-4%"` | Moves the zoomed home scene left/right |
+| `imageVerticalOffset` | `"3%"` | Moves the zoomed home scene up/down |
 | `showSummary` | `true` | Shows site name, generated energy, and status message |
 | `showGridCarbon` | `true` | Shows renewables percentage and carbon intensity when electricityMaps is configured |
 | `showVehicle` | `true` | Shows Wall Connector vehicle label |
 | `showHistory` | `false` | Adds a compact live sparkline overlay |
-| `showLessPrecision` | `false` | Uses one decimal place for power values |
+| `showLessPrecision` | `false` | Deprecated; numeric display is fixed to one decimal place |
 | `scale` | `1` | Scales the scene without changing layout |
 | `horizontalOffset` | `0` | Pixel offset for placement tuning |
 | `verticalOffset` | `0` | Pixel offset for placement tuning |

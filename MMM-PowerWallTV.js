@@ -11,8 +11,8 @@ Module.register("MMM-PowerWallTV", {
     domUpdateAnimationSpeed: 0,
     animation: true,
     imageScale: 1.2,
-    imageHorizontalOffset: "-8%",
-    imageVerticalOffset: "0%",
+    imageHorizontalOffset: "-4%",
+    imageVerticalOffset: "3%",
     showSummary: true,
     showGridCarbon: true,
     showVehicle: true,
@@ -598,11 +598,7 @@ Module.register("MMM-PowerWallTV", {
   },
 
   formatNumber(value, fixedDigits) {
-    const digits = Number.isFinite(fixedDigits) ? fixedDigits : (this.config.showLessPrecision ? 1 : 3);
-    const abs = Math.abs(Number(value) || 0);
-    if (abs >= 1000) {
-      return (Number(value) || 0).toFixed(0);
-    }
+    const digits = Number.isFinite(fixedDigits) ? fixedDigits : 1;
     return (Number(value) || 0).toFixed(digits);
   },
 
