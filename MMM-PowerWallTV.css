@@ -173,11 +173,12 @@
 }
 
 .pwtv-metric-battery {
+  bottom: 5%;
   left: 5%;
   text-align: left;
-  top: 78%;
-  transform: translate(0, -50%) scale(1.2);
-  transform-origin: left center;
+  top: auto;
+  transform: scale(1.2);
+  transform-origin: left bottom;
 }
 
 .pwtv-metric-battery .pwtv-metric-value {
@@ -185,8 +186,11 @@
 }
 
 .pwtv-metric-grid {
+  bottom: 5%;
   left: 85%;
-  top: 78%;
+  top: auto;
+  transform: translate(-50%, 0) scale(1.2);
+  transform-origin: center bottom;
 }
 
 .pwtv-metric-vehicle {

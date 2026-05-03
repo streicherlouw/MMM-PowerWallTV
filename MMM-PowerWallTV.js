@@ -159,7 +159,7 @@ Module.register("MMM-PowerWallTV", {
     stage.appendChild(this.renderMetric("solar", this.formatPower(this.snapshot.solarPower), "SOLAR"));
     stage.appendChild(this.renderMetric("home", this.formatPower(this.homePowerToDisplay(this.snapshot)), "HOME"));
     scene.appendChild(this.renderMetric("battery", this.renderBatteryValue(this.snapshot), this.batteryLabel(this.snapshot), true));
-    stage.appendChild(this.renderMetric("grid", this.renderGridValue(this.snapshot), this.gridLabel(this.snapshot), true));
+    scene.appendChild(this.renderMetric("grid", this.renderGridValue(this.snapshot), this.gridLabel(this.snapshot), true));
 
     if (this.config.showVehicle && this.hasWallConnector(this.snapshot)) {
       stage.appendChild(this.renderMetric("vehicle", this.vehicleValue(this.snapshot), this.vehicleLabel(this.snapshot)));
