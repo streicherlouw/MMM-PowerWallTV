@@ -6,7 +6,7 @@
   --pwtv-x: 0px;
   --pwtv-y: 0px;
   --pwtv-image-scale: 1.2;
-  --pwtv-image-x: -4%;
+  --pwtv-image-x: -2%;
   --pwtv-image-y: 3%;
   border-radius: var(--pwtv-radius);
   box-sizing: border-box;
@@ -168,8 +168,15 @@
 }
 
 .pwtv-metric-home {
-  left: 85%;
+  left: auto;
+  right: 5%;
+  text-align: right;
   top: 34%;
+  transform: translate(0, -50%);
+}
+
+.pwtv-metric-home .pwtv-metric-value {
+  justify-content: flex-end;
 }
 
 .pwtv-metric-battery {
@@ -187,10 +194,16 @@
 
 .pwtv-metric-grid {
   bottom: 8%;
-  left: 85%;
+  left: auto;
+  right: 5%;
+  text-align: right;
   top: auto;
-  transform: translate(-50%, 0) scale(1.2);
-  transform-origin: center bottom;
+  transform: scale(1.2);
+  transform-origin: right bottom;
+}
+
+.pwtv-metric-grid .pwtv-metric-value {
+  justify-content: flex-end;
 }
 
 .pwtv-metric-vehicle {

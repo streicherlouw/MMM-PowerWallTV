@@ -107,7 +107,7 @@ Fleet mode also fetches `calendar_history?kind=energy&period=day` to show the "E
 | `domUpdateAnimationSpeed` | `0` | MagicMirror redraw fade speed; keep at `0` to avoid flashing every refresh |
 | `animation` | `true` | Enables animated power-flow traces |
 | `imageScale` | `1.2` | Zooms the home scene artwork and aligned overlays |
-| `imageHorizontalOffset` | `"-4%"` | Moves the zoomed home scene left/right |
+| `imageHorizontalOffset` | `"-2%"` | Moves the zoomed home scene left/right |
 | `imageVerticalOffset` | `"3%"` | Moves the zoomed home scene up/down |
 | `showSummary` | `true` | Shows site name, generated energy, and status message |
 | `showGridCarbon` | `true` | Shows renewables percentage and carbon intensity when electricityMaps is configured |

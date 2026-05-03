@@ -11,7 +11,7 @@ Module.register("MMM-PowerWallTV", {
     domUpdateAnimationSpeed: 0,
     animation: true,
     imageScale: 1.2,
-    imageHorizontalOffset: "-4%",
+    imageHorizontalOffset: "-2%",
     imageVerticalOffset: "3%",
     showSummary: true,
     showGridCarbon: true,
@@ -156,8 +156,8 @@ Module.register("MMM-PowerWallTV", {
       scene.appendChild(this.renderSummary(this.snapshot));
     }
 
-    stage.appendChild(this.renderMetric("solar", this.formatPower(this.snapshot.solarPower), "SOLAR"));
-    stage.appendChild(this.renderMetric("home", this.formatPower(this.homePowerToDisplay(this.snapshot)), "HOME"));
+    scene.appendChild(this.renderMetric("solar", this.formatPower(this.snapshot.solarPower), "SOLAR"));
+    scene.appendChild(this.renderMetric("home", this.formatPower(this.homePowerToDisplay(this.snapshot)), "HOME"));
     scene.appendChild(this.renderMetric("battery", this.renderBatteryValue(this.snapshot), this.batteryLabel(this.snapshot), true));
     scene.appendChild(this.renderMetric("grid", this.renderGridValue(this.snapshot), this.gridLabel(this.snapshot), true));
 
