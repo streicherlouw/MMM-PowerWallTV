@@ -410,7 +410,7 @@ Module.register("MMM-PowerWallTV", {
 
   preloadImages() {
     this.preloadedImages = [
-      "home.png",
+      "home-large.png",
       "home-charger.png",
       "home-charger-empty.png",
       "home-charger-cybertruck.png",
@@ -482,7 +482,7 @@ Module.register("MMM-PowerWallTV", {
 
   homeImageName() {
     if (!this.snapshot || !this.hasWallConnector(this.snapshot)) {
-      return "home.png";
+      return "home-large.png";
     }
 
     const power = this.wallConnectorPower(this.snapshot);

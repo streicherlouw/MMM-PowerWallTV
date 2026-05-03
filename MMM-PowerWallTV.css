@@ -135,8 +135,8 @@
 }
 
 .pwtv-metric {
-  min-width: 138px;
-  min-width: 18cqw;
+  min-width: 110px;
+  min-width: 14.4cqw;
   text-align: center;
   transform: translate(-50%, -50%);
   white-space: nowrap;
@@ -145,8 +145,8 @@
 .pwtv-metric-value {
   align-items: center;
   display: flex;
-  font-size: clamp(15px, 3.075vw, 42px);
-  font-size: clamp(15px, 3.375cqw, 42px);
+  font-size: clamp(12px, 2.46vw, 34px);
+  font-size: clamp(12px, 2.7cqw, 34px);
   font-weight: 800;
   justify-content: center;
   line-height: 1;
@@ -154,8 +154,8 @@
 
 .pwtv-metric-label {
   color: rgba(255, 255, 255, 0.64);
-  font-size: clamp(11px, 1.41vw, 21px);
-  font-size: clamp(11px, 1.725cqw, 21px);
+  font-size: clamp(9px, 1.128vw, 17px);
+  font-size: clamp(9px, 1.38cqw, 17px);
   font-weight: 800;
   line-height: 1;
   margin-top: 5px;
@@ -163,7 +163,7 @@
 }
 
 .pwtv-metric-solar {
-  left: 63%;
+  left: 73%;
   top: 17%;
 }
 
