@@ -1,7 +1,9 @@
 const NodeHelper = require("node_helper");
+const { execFile } = require("child_process");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
+const os = require("os");
 const path = require("path");
 
 module.exports = NodeHelper.create({
@@ -10,6 +12,7 @@ module.exports = NodeHelper.create({
     this.gridCache = new Map();
     this.fleetTokenMemory = new Map();
     this.fleetSolarEnergyCache = new Map();
+    this.tedapiAggregateHistoryMemory = new Map();
   },
 
   socketNotificationReceived(notification, payload) {
@@ -41,6 +44,8 @@ module.exports = NodeHelper.create({
       snapshot = this.demoSnapshot(normalized);
     } else if (normalized.mode === "fleet") {
       snapshot = await this.fetchFleetSnapshot(normalized);
+    } else if (normalized.mode === "tedapi") {
+      snapshot = await this.fetchTedapiSnapshot(normalized);
     } else {
       snapshot = await this.fetchLocalSnapshot(normalized);
     }
@@ -73,12 +78,40 @@ module.exports = NodeHelper.create({
       gatewayIP: "demo",
       email: "",
       password: "",
+      gatewayPassword: "",
+      gwPwd: "",
       protocol: "https",
       rejectUnauthorized: false,
       siteName: "",
       wallConnectorIP: "",
       lastChargingWallConnectorVIN: ""
     }, config.local || {});
+
+    const tedapi = Object.assign({
+      gatewayIP: local.gatewayIP || "192.168.91.1",
+      gatewayPassword: "",
+      gwPwd: "",
+      python: "python3",
+      siteName: local.siteName || "",
+      timezone: "",
+      timeoutSeconds: 10,
+      retryAttempts: 3,
+      retryDelayMs: 1500,
+      solarStringKeys: ["A", "B", "C"],
+      solarStringGroups: [["A", "B"], ["C", "D"], ["E", "F"]],
+      solarStringLabels: [],
+      showSolarStringLabels: false,
+      solarStringPanelCount: 12,
+      solarStringPanelWatts: 480,
+      aggregateHistoryPath: "~/.cache/MMM-PowerWallTV/tedapi-aggregates.json",
+      aggregateHistoryDays: 30,
+      solarIntegrationMaxGapSeconds: 300
+    }, config.tedapi || {});
+    tedapi.gatewayIP = tedapi.gatewayIP || local.gatewayIP || "192.168.91.1";
+    tedapi.siteName = tedapi.siteName || local.siteName || "";
+    tedapi.gatewayPassword = tedapi.gatewayPassword || tedapi.gwPwd || local.gatewayPassword || local.gwPwd || (
+      String(config.mode || "").toLowerCase() === "tedapi" ? local.password : ""
+    );
 
     const fleet = Object.assign({
       baseURL: "https://fleet-api.prd.na.vn.cloud.tesla.com",
@@ -100,9 +133,335 @@ module.exports = NodeHelper.create({
     return {
       mode: String(config.mode || "demo").toLowerCase(),
       local,
+      tedapi,
       fleet,
       electricityMaps,
       timeoutMs: Number(config.timeoutMs) || 9000
+    };
+  },
+
+  async fetchTedapiSnapshot(config) {
+    const gatewayIP = String(config.tedapi.gatewayIP || "").trim();
+    const gatewayPassword = String(config.tedapi.gatewayPassword || "").trim();
+    if (!gatewayIP) {
+      throw new Error("Missing tedapi.gatewayIP.");
+    }
+    if (!gatewayPassword) {
+      throw new Error("Missing tedapi.gatewayPassword.");
+    }
+
+    const timeoutSeconds = Math.max(5, Number(config.tedapi.timeoutSeconds) || 10);
+    const retryAttempts = Math.max(1, Number(config.tedapi.retryAttempts) || 3);
+    const retryDelayMs = Math.max(0, Number(config.tedapi.retryDelayMs) || 1500);
+    const payload = await this.execJsonFile(String(config.tedapi.python || "python3"), [
+      path.join(__dirname, "scripts", "fetch-tedapi.py"),
+      "--host", gatewayIP,
+      "--site-name", String(config.tedapi.siteName || ""),
+      "--timezone", String(config.tedapi.timezone || this.localTimeZone()),
+      "--timeout", String(timeoutSeconds)
+    ], {
+      timeoutMs: Math.max(config.timeoutMs, timeoutSeconds * 1000 + 10000),
+      attempts: retryAttempts,
+      retryDelayMs,
+      env: {
+        PWTV_TEDAPI_GATEWAY_PASSWORD: gatewayPassword
+      }
+    });
+
+    const aggregateMeters = payload.aggregateMeters && typeof payload.aggregateMeters === "object" && !Array.isArray(payload.aggregateMeters)
+      ? payload.aggregateMeters
+      : {};
+    let tedapiEnergy = {
+      hasBaseline: false,
+      solarEnergyTodayWh: 0,
+      solarEnergyCumulativeWh: Number(payload.solarEnergyExportedWh) || 0,
+      solarEnergyEstimated: false,
+      solarEnergySource: "meter"
+    };
+    let infoMessage = "";
+    try {
+      tedapiEnergy = this.updateTedapiAggregateHistory(config, aggregateMeters, Number(payload.solarPower) || 0);
+    } catch (error) {
+      infoMessage = `TEDAPI aggregate cache unavailable: ${error.message}`;
+    }
+
+    return {
+      source: "tedapi",
+      siteName: config.tedapi.siteName || payload.siteName || "",
+      solarPower: Number(payload.solarPower) || 0,
+      homePower: Number(payload.homePower) || 0,
+      batteryPower: Number(payload.batteryPower) || 0,
+      gridPower: Number(payload.gridPower) || 0,
+      batteryPercentage: Number(payload.batteryPercentage) || 0,
+      batteryCount: Number(payload.batteryCount) || 0,
+      timeRemainingHours: Number(payload.timeRemainingHours) || 0,
+      solarStrings: payload.solarStrings || {},
+      solarEnergyExportedWh: tedapiEnergy.hasBaseline ? tedapiEnergy.solarEnergyTodayWh : 0,
+      solarEnergyToday: tedapiEnergy.hasBaseline,
+      solarEnergyCumulativeWh: tedapiEnergy.solarEnergyCumulativeWh,
+      solarEnergyEstimated: tedapiEnergy.solarEnergyEstimated,
+      solarEnergySource: tedapiEnergy.solarEnergySource,
+      gridStatus: this.normalizeTedapiGridStatus(payload.gridStatus),
+      wallConnectors: [],
+      infoMessage,
+      raw: {
+        tedapi: payload.raw || payload,
+        tedapiAggregateHistory: {
+          hasBaseline: tedapiEnergy.hasBaseline,
+          baselineObservedAt: tedapiEnergy.baselineObservedAt || "",
+          baselineHourKey: tedapiEnergy.baselineHourKey || "",
+          currentHourKey: tedapiEnergy.currentHourKey || "",
+          solarEnergySource: tedapiEnergy.solarEnergySource || "",
+          historyPath: tedapiEnergy.historyPath || ""
+        }
+      }
+    };
+  },
+
+  updateTedapiAggregateHistory(config, aggregateMeters, solarPowerW = 0) {
+    const currentWh = this.numberAt(aggregateMeters, ["solar", "energy_exported"]);
+    const currentPowerW = Math.max(0, Number(solarPowerW) || this.numberAt(aggregateMeters, ["solar", "instant_power"]));
+    if (!aggregateMeters || !Object.keys(aggregateMeters).length) {
+      return {
+        hasBaseline: false,
+        solarEnergyTodayWh: 0,
+        solarEnergyCumulativeWh: Math.max(0, currentWh || 0),
+        solarEnergyEstimated: false,
+        solarEnergySource: "unavailable"
+      };
+    }
+
+    const observedAt = new Date();
+    const timeZone = this.effectiveTedapiTimeZone(config);
+    const local = this.localTimeParts(observedAt, timeZone);
+    const hourKey = `${local.date}T${String(local.hour).padStart(2, "0")}`;
+    const historyPath = this.resolveTedapiAggregateHistoryPath(config);
+    const store = this.loadTedapiAggregateHistoryStore(config);
+    const siteKey = this.tedapiAggregateHistoryKey(config, timeZone);
+    const siteHistory = store.sites[siteKey] || {
+      gatewayIP: String(config.tedapi.gatewayIP || ""),
+      siteName: String(config.tedapi.siteName || ""),
+      timeZone,
+      readings: [],
+      daily: {
+        localDate: local.date,
+        solarEnergyTodayWh: 0
+      }
+    };
+
+    const readings = Array.isArray(siteHistory.readings) ? siteHistory.readings : [];
+    const hasUsableMeterCounter = Number.isFinite(currentWh) && currentWh > 0;
+    let solarEnergyTodayWh = 0;
+    let hasBaseline = false;
+    let baseline = null;
+    let source = "integrated_power";
+
+    if (hasUsableMeterCounter) {
+      source = "meter";
+      baseline = this.tedapiTodayBaseline(readings, local.date);
+      if (baseline) {
+        solarEnergyTodayWh = Math.max(0, currentWh - (Number(baseline.solarEnergyExportedWh) || 0));
+        hasBaseline = true;
+      }
+    } else {
+      const daily = siteHistory.daily && siteHistory.daily.localDate === local.date
+        ? siteHistory.daily
+        : {
+          localDate: local.date,
+          solarEnergyTodayWh: 0
+        };
+      solarEnergyTodayWh = Math.max(0, Number(daily.solarEnergyTodayWh) || 0);
+      const previousSample = siteHistory.lastSample || null;
+      if (previousSample && previousSample.localDate === local.date) {
+        const previousAt = Date.parse(previousSample.observedAt);
+        const elapsedSeconds = (observedAt.getTime() - previousAt) / 1000;
+        const maxGapSeconds = Math.max(10, Number(config.tedapi.solarIntegrationMaxGapSeconds) || 300);
+        if (Number.isFinite(elapsedSeconds) && elapsedSeconds > 0 && elapsedSeconds <= maxGapSeconds) {
+          const previousPowerW = Math.max(0, Number(previousSample.solarPowerW) || 0);
+          solarEnergyTodayWh += ((previousPowerW + currentPowerW) / 2) * (elapsedSeconds / 3600);
+        }
+      }
+      siteHistory.daily = {
+        localDate: local.date,
+        solarEnergyTodayWh
+      };
+      siteHistory.lastSample = {
+        observedAt: observedAt.toISOString(),
+        localDate: local.date,
+        localHour: local.hour,
+        solarPowerW: currentPowerW
+      };
+      hasBaseline = true;
+    }
+
+    const nextReading = {
+      hourKey,
+      localDate: local.date,
+      localHour: local.hour,
+      observedAt: observedAt.toISOString(),
+      solarEnergyExportedWh: currentWh,
+      solarEnergyTodayWh,
+      solarPowerW: currentPowerW,
+      solarEnergySource: source,
+      solarEnergyEstimated: source !== "meter",
+      aggregates: aggregateMeters
+    };
+    const existingIndex = readings.findIndex((reading) => reading && reading.hourKey === hourKey);
+    if (existingIndex >= 0) {
+      readings[existingIndex] = nextReading;
+    } else {
+      readings.push(nextReading);
+    }
+
+    const retentionDays = Math.max(1, Number(config.tedapi.aggregateHistoryDays) || 30);
+    const cutoffMs = observedAt.getTime() - retentionDays * 24 * 60 * 60 * 1000;
+    siteHistory.readings = readings
+      .filter((reading) => reading && Date.parse(reading.observedAt) >= cutoffMs)
+      .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
+    siteHistory.gatewayIP = String(config.tedapi.gatewayIP || "");
+    siteHistory.siteName = String(config.tedapi.siteName || "");
+    siteHistory.timeZone = timeZone;
+    siteHistory.updatedAt = observedAt.toISOString();
+    store.version = 1;
+    store.sites[siteKey] = siteHistory;
+    store.updatedAt = observedAt.toISOString();
+    this.saveTedapiAggregateHistoryStore(config, store);
+
+    if (!hasBaseline) {
+      return {
+        hasBaseline: false,
+        solarEnergyTodayWh: 0,
+        solarEnergyCumulativeWh: currentWh,
+        currentHourKey: hourKey,
+        solarEnergyEstimated: false,
+        solarEnergySource: source,
+        historyPath
+      };
+    }
+
+    return {
+      hasBaseline: true,
+      solarEnergyTodayWh,
+      solarEnergyCumulativeWh: currentWh,
+      solarEnergyEstimated: source !== "meter",
+      solarEnergySource: source,
+      baselineObservedAt: baseline ? baseline.observedAt || "" : "",
+      baselineHourKey: baseline ? baseline.hourKey || "" : "",
+      currentHourKey: hourKey,
+      historyPath
+    };
+  },
+
+  tedapiTodayBaseline(readings, todayDate) {
+    const usable = (Array.isArray(readings) ? readings : [])
+      .filter((reading) => reading && Number.isFinite(Number(reading.solarEnergyExportedWh)));
+    const previous = usable
+      .filter((reading) => String(reading.localDate || "") < todayDate)
+      .sort((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt));
+    if (previous.length) {
+      return previous[0];
+    }
+
+    return usable
+      .filter((reading) => String(reading.localDate || "") === todayDate && Number(reading.localHour) === 0)
+      .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt))[0] || null;
+  },
+
+  loadTedapiAggregateHistoryStore(config) {
+    const historyPath = this.resolveTedapiAggregateHistoryPath(config);
+    const memoryKey = historyPath || "default";
+    const memoryStore = this.tedapiAggregateHistoryMemory.get(memoryKey);
+    if (memoryStore) {
+      return memoryStore;
+    }
+
+    let store = { version: 1, sites: {} };
+    if (historyPath && fs.existsSync(historyPath)) {
+      try {
+        store = JSON.parse(fs.readFileSync(historyPath, "utf8"));
+      } catch (error) {
+        throw new Error(`Unable to read TEDAPI aggregate history ${historyPath}: ${error.message}`);
+      }
+    }
+
+    if (!store || typeof store !== "object") {
+      store = { version: 1, sites: {} };
+    }
+    if (!store.sites || typeof store.sites !== "object") {
+      store.sites = {};
+    }
+
+    this.tedapiAggregateHistoryMemory.set(memoryKey, store);
+    return store;
+  },
+
+  saveTedapiAggregateHistoryStore(config, store) {
+    const historyPath = this.resolveTedapiAggregateHistoryPath(config);
+    const memoryKey = historyPath || "default";
+    this.tedapiAggregateHistoryMemory.set(memoryKey, store);
+    if (!historyPath) {
+      return;
+    }
+
+    const directory = path.dirname(historyPath);
+    fs.mkdirSync(directory, { recursive: true });
+    const temporaryPath = `${historyPath}.tmp`;
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, { mode: 0o600 });
+    fs.renameSync(temporaryPath, historyPath);
+    try {
+      fs.chmodSync(historyPath, 0o600);
+    } catch (error) {
+      // Best-effort permissions; Windows and some filesystems may not support chmod.
+    }
+  },
+
+  resolveTedapiAggregateHistoryPath(config) {
+    const configuredPath = String(config.tedapi.aggregateHistoryPath || "").trim();
+    if (!configuredPath) {
+      return "";
+    }
+    if (configuredPath === "~" || configuredPath.startsWith("~/")) {
+      return path.join(os.homedir(), configuredPath.slice(2));
+    }
+    return path.isAbsolute(configuredPath) ? configuredPath : path.join(__dirname, configuredPath);
+  },
+
+  tedapiAggregateHistoryKey(config, timeZone) {
+    return [
+      String(config.tedapi.gatewayIP || ""),
+      String(config.tedapi.siteName || ""),
+      timeZone
+    ].join("|");
+  },
+
+  effectiveTedapiTimeZone(config) {
+    const configured = String(config.tedapi.timezone || this.localTimeZone() || "Etc/UTC").trim() || "Etc/UTC";
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: configured }).format(new Date());
+      return configured;
+    } catch (error) {
+      return this.localTimeZone();
+    }
+  },
+
+  localTimeParts(date, timeZone) {
+    const parts = {};
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23"
+    });
+    formatter.formatToParts(date).forEach((part) => {
+      if (part.type !== "literal") {
+        parts[part.type] = part.value;
+      }
+    });
+    return {
+      date: `${parts.year}-${parts.month}-${parts.day}`,
+      hour: Number(parts.hour) || 0
     };
   },
 
@@ -572,6 +931,68 @@ module.exports = NodeHelper.create({
       wallConnectors,
       infoMessage: "Demo data"
     };
+  },
+
+  normalizeTedapiGridStatus(status) {
+    const value = String(status || "").trim().toUpperCase();
+    if (value === "DOWN" || value === "OFF_GRID" || value === "ISLANDED") {
+      return "SystemIslandedActive";
+    }
+    if (value === "UP" || value === "CONNECTED" || value === "GRID_CONNECTED") {
+      return "SystemGridConnected";
+    }
+    return status || "";
+  },
+
+  async execJsonFile(command, args, options = {}) {
+    const env = Object.assign({}, process.env, options.env || {});
+    const attempts = Math.max(1, Number(options.attempts) || 1);
+    let lastError;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await new Promise((resolve, reject) => {
+          execFile(command, args, {
+            env,
+            timeout: options.timeoutMs || 15000,
+            maxBuffer: 1024 * 1024
+          }, (error, stdout, stderr) => {
+            if (error) {
+              reject(this.helperError(error, stdout, stderr));
+              return;
+            }
+
+            try {
+              resolve(JSON.parse(stdout));
+            } catch (parseError) {
+              reject(new Error(`TEDAPI helper returned invalid JSON: ${String(stdout).slice(0, 180)}`));
+            }
+          });
+        });
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts) {
+          await this.delay(options.retryDelayMs || 0);
+        }
+      }
+    }
+
+    throw lastError;
+  },
+
+  helperError(error, stdout, stderr) {
+    const details = String(stderr || stdout || "").trim();
+    if (details) {
+      return new Error(`TEDAPI helper failed: ${details}`);
+    }
+    if (error.killed || error.signal) {
+      return new Error("TEDAPI helper failed: timed out waiting for the gateway.");
+    }
+    return new Error(`TEDAPI helper failed: exited with code ${error.code || "unknown"}.`);
+  },
+
+  delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   },
 
   requestJson(urlString, requestOptions = {}, transportOptions = {}) {

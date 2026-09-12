@@ -5,6 +5,7 @@ Module.register("MMM-PowerWallTV", {
     mode: "demo",
     updateInterval: 10 * 1000,
     retryInterval: 30 * 1000,
+    staleDataOnError: true,
     width: "100%",
     maxWidth: "1050px",
     cornerRadius: "18px",
@@ -19,6 +20,8 @@ Module.register("MMM-PowerWallTV", {
     showHistory: false,
     historyLimit: 120,
     powerThresholdWatts: 10,
+    gridHysteresisWatts: 30,
+    gridAnimationThresholdWatts: 30,
     showLessPrecision: false,
     scale: 1,
     horizontalOffset: 0,
@@ -27,11 +30,34 @@ Module.register("MMM-PowerWallTV", {
       gatewayIP: "demo",
       email: "",
       password: "",
+      gatewayPassword: "",
+      gwPwd: "",
       protocol: "https",
       rejectUnauthorized: false,
       siteName: "",
       wallConnectorIP: "",
       lastChargingWallConnectorVIN: ""
+    },
+    tedapi: {
+      gatewayIP: "192.168.91.1",
+      gatewayPassword: "",
+      gwPwd: "",
+      python: "python3",
+      siteName: "",
+      timezone: "",
+      timeoutSeconds: 10,
+      retryAttempts: 3,
+      retryDelayMs: 1500,
+      solarStringKeys: ["A", "B", "C"],
+      solarStringGroups: [["A", "B"], ["C", "D"], ["E", "F"]],
+      solarStringLabels: [],
+      showSolarStringLabels: false,
+      solarStringPanelCount: 12,
+      solarStringPanelWatts: 480,
+      solarStringExpectedOutputFactor: 0.72,
+      aggregateHistoryPath: "~/.cache/MMM-PowerWallTV/tedapi-aggregates.json",
+      aggregateHistoryDays: 30,
+      solarIntegrationMaxGapSeconds: 300
     },
     fleet: {
       baseURL: "https://fleet-api.prd.na.vn.cloud.tesla.com",
@@ -57,7 +83,9 @@ Module.register("MMM-PowerWallTV", {
     this.loaded = false;
     this.history = [];
     this.fetchTimer = null;
+    this.fetchInFlight = false;
     this.instanceId = this.identifier || this.name;
+    this.domRefs = null;
     this.preloadImages();
     this.fetchNow();
   },
@@ -83,20 +111,42 @@ Module.register("MMM-PowerWallTV", {
     }
 
     if (notification === "PWTV_DATA") {
+      this.fetchInFlight = false;
+      const previousSnapshot = this.snapshot;
+      const nextSnapshot = this.applyGridHysteresis(payload.snapshot, previousSnapshot);
+      const previousFlowSignature = previousSnapshot ? this.flowSignature(previousSnapshot) : "";
+      const nextFlowSignature = this.flowSignature(nextSnapshot);
+      const canPatch = this.canPatchSnapshotUpdate(previousSnapshot, nextSnapshot, previousFlowSignature, nextFlowSignature);
+
       this.loaded = true;
       this.errorMessage = null;
-      this.infoMessage = payload.snapshot.infoMessage || null;
-      this.snapshot = payload.snapshot;
-      this.recordHistory(payload.snapshot);
-      this.updateDom(this.config.domUpdateAnimationSpeed);
+      this.infoMessage = nextSnapshot.infoMessage || null;
+      this.snapshot = nextSnapshot;
+      this.recordHistory(nextSnapshot);
+
+      if (!canPatch || !this.updateSnapshotDom(nextSnapshot)) {
+        this.updateDom(this.config.domUpdateAnimationSpeed);
+      }
+
       this.scheduleFetch(this.config.updateInterval);
     }
 
     if (notification === "PWTV_ERROR") {
+      this.fetchInFlight = false;
       this.loaded = true;
-      this.errorMessage = payload.error || "Unable to fetch Powerwall data.";
-      this.infoMessage = null;
-      this.updateDom(this.config.domUpdateAnimationSpeed);
+      const message = this.compactErrorMessage(payload.error || "Unable to fetch Powerwall data.");
+      if (this.snapshot && this.config.staleDataOnError) {
+        this.errorMessage = null;
+        this.infoMessage = `Powerwall data delayed; showing last update from ${this.formatTimestamp(this.snapshot.fetchedAt)}.`;
+      } else {
+        this.errorMessage = message;
+        this.infoMessage = null;
+      }
+
+      if (!this.snapshot || !this.updateSnapshotDom(this.snapshot)) {
+        this.updateDom(this.config.domUpdateAnimationSpeed);
+      }
+
       this.scheduleFetch(this.config.retryInterval);
     }
   },
@@ -115,6 +165,10 @@ Module.register("MMM-PowerWallTV", {
   },
 
   fetchNow() {
+    if (this.fetchInFlight) {
+      return;
+    }
+    this.fetchInFlight = true;
     this.sendSocketNotification("PWTV_FETCH", {
       instanceId: this.instanceId,
       config: this.config
@@ -123,6 +177,12 @@ Module.register("MMM-PowerWallTV", {
 
   getDom() {
     const wrapper = this.el("div", "pwtv");
+    this.domRefs = {
+      wrapper,
+      scene: null,
+      stage: null
+    };
+
     wrapper.style.setProperty("--pwtv-width", this.config.width);
     wrapper.style.setProperty("--pwtv-max-width", this.config.maxWidth);
     wrapper.style.setProperty("--pwtv-radius", this.config.cornerRadius);
@@ -134,9 +194,11 @@ Module.register("MMM-PowerWallTV", {
     wrapper.style.setProperty("--pwtv-image-y", this.config.imageVerticalOffset);
 
     const scene = this.el("div", "pwtv-scene");
+    this.domRefs.scene = scene;
     wrapper.appendChild(scene);
 
     const stage = this.el("div", "pwtv-stage");
+    this.domRefs.stage = stage;
     scene.appendChild(stage);
 
     const image = this.el("img", "pwtv-home-image");
@@ -156,9 +218,9 @@ Module.register("MMM-PowerWallTV", {
       scene.appendChild(this.renderSummary(this.snapshot));
     }
 
-    scene.appendChild(this.renderMetric("solar", this.formatPower(this.snapshot.solarPower), "SOLAR"));
+    scene.appendChild(this.renderSolarMetric(this.snapshot));
     scene.appendChild(this.renderMetric("home", this.formatPower(this.homePowerToDisplay(this.snapshot)), "HOME"));
-    scene.appendChild(this.renderMetric("battery", this.renderBatteryValue(this.snapshot), this.batteryLabel(this.snapshot), true));
+    scene.appendChild(this.renderBatteryMetric(this.snapshot));
     scene.appendChild(this.renderMetric("grid", this.renderGridValue(this.snapshot), this.gridLabel(this.snapshot), true));
 
     if (this.config.showVehicle && this.hasWallConnector(this.snapshot)) {
@@ -179,6 +241,63 @@ Module.register("MMM-PowerWallTV", {
     return wrapper;
   },
 
+  canPatchSnapshotUpdate(previousSnapshot, nextSnapshot, previousFlowSignature, nextFlowSignature) {
+    if (!previousSnapshot || !nextSnapshot || !this.domRefs || !this.domRefs.scene || !this.domRefs.stage) {
+      return false;
+    }
+
+    return previousFlowSignature === nextFlowSignature &&
+      this.homeImageNameFor(previousSnapshot) === this.homeImageNameFor(nextSnapshot) &&
+      this.isOffGrid(previousSnapshot) === this.isOffGrid(nextSnapshot) &&
+      this.hasWallConnector(previousSnapshot) === this.hasWallConnector(nextSnapshot);
+  },
+
+  updateSnapshotDom(snapshot) {
+    if (!this.domRefs || !this.domRefs.scene || !this.domRefs.stage) {
+      return false;
+    }
+
+    const scene = this.domRefs.scene;
+    const stage = this.domRefs.stage;
+
+    this.replaceElement(stage, ".pwtv-battery-fill", this.renderBatteryFill(snapshot));
+    this.replaceElement(scene, ".pwtv-summary", this.config.showSummary ? this.renderSummary(snapshot) : null);
+    this.replaceElement(scene, ".pwtv-metric-solar", this.renderSolarMetric(snapshot));
+    this.replaceElement(scene, ".pwtv-metric-home", this.renderMetric("home", this.formatPower(this.homePowerToDisplay(snapshot)), "HOME"));
+    this.replaceElement(scene, ".pwtv-metric-battery", this.renderBatteryMetric(snapshot));
+    this.replaceElement(scene, ".pwtv-metric-grid", this.renderMetric("grid", this.renderGridValue(snapshot), this.gridLabel(snapshot), true));
+
+    const vehicleMetric = this.config.showVehicle && this.hasWallConnector(snapshot)
+      ? this.renderMetric("vehicle", this.vehicleValue(snapshot), this.vehicleLabel(snapshot))
+      : null;
+    this.replaceElement(stage, ".pwtv-metric-vehicle", vehicleMetric);
+
+    const offGrid = this.isOffGrid(snapshot) ? this.el("img", "pwtv-off-grid") : null;
+    if (offGrid) {
+      offGrid.src = this.file("assets/off-grid.png");
+      offGrid.alt = "";
+    }
+    this.replaceElement(stage, ".pwtv-off-grid", offGrid);
+    this.replaceElement(scene, ".pwtv-history", this.config.showHistory ? this.renderHistory() : null);
+
+    return true;
+  },
+
+  replaceElement(parent, selector, replacement) {
+    const existing = parent.querySelector(selector);
+    if (existing && replacement) {
+      existing.replaceWith(replacement);
+      return;
+    }
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    if (replacement) {
+      parent.appendChild(replacement);
+    }
+  },
+
   renderLoading() {
     const loading = this.el("div", "pwtv-loading");
     const title = this.el("div", "pwtv-loading-title", this.loaded ? "Waiting for data" : "Loading...");
@@ -188,6 +307,31 @@ Module.register("MMM-PowerWallTV", {
     return loading;
   },
 
+  compactErrorMessage(message) {
+    const text = String(message || "").replace(/\s+/g, " ").trim();
+    if (!text) {
+      return "Unable to fetch Powerwall data.";
+    }
+    if (text.includes("TEDAPI helper failed")) {
+      if (text.toLowerCase().includes("timed out")) {
+        return "TEDAPI fetch timed out.";
+      }
+      return "TEDAPI fetch failed.";
+    }
+    return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+  },
+
+  formatTimestamp(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) {
+      return "the last successful refresh";
+    }
+    return date.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  },
+
   renderSummary(snapshot) {
     const summary = this.el("div", "pwtv-summary");
     const siteName = snapshot.siteName || this.config.local.siteName || this.config.fleet.siteName;
@@ -195,16 +339,19 @@ Module.register("MMM-PowerWallTV", {
       summary.appendChild(this.el("div", "pwtv-summary-site", siteName));
     }
 
-    if (Number.isFinite(snapshot.solarEnergyExportedWh) && snapshot.solarEnergyExportedWh > 0) {
+    const generatedToday = this.generatedTodayValue(snapshot);
+    if (generatedToday) {
+      const generated = this.el("div", "pwtv-summary-generated");
+      generated.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label", "GENERATED TODAY"));
+      generated.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", generatedToday));
+      summary.appendChild(generated);
+    }
+
+    if (!snapshot.solarEnergyToday && Number.isFinite(snapshot.solarEnergyExportedWh) && snapshot.solarEnergyExportedWh > 0) {
       const kwh = snapshot.solarEnergyExportedWh / 1000;
       summary.appendChild(this.el("div", "pwtv-summary-energy", `${this.formatNumber(kwh)} kWh`));
       const energyLabel = this.el("div", "pwtv-summary-label");
-      if (snapshot.solarEnergyToday) {
-        energyLabel.appendChild(this.el("div", "", "ENERGY GENERATED"));
-        energyLabel.appendChild(this.el("div", "", "TODAY"));
-      } else {
-        energyLabel.textContent = "ENERGY GENERATED";
-      }
+      energyLabel.textContent = "ENERGY GENERATED";
       summary.appendChild(energyLabel);
     }
 
@@ -230,6 +377,43 @@ Module.register("MMM-PowerWallTV", {
     return metric;
   },
 
+  renderSolarMetric(snapshot) {
+    const metric = this.el("div", "pwtv-metric pwtv-metric-solar");
+    const main = this.el("div", "pwtv-solar-main");
+    const valueNode = this.el("div", "pwtv-metric-value", this.formatPower(snapshot.solarPower));
+    main.appendChild(valueNode);
+
+    const strings = this.solarStringStats(snapshot);
+    main.appendChild(this.el("div", "pwtv-metric-label", "SOLAR"));
+    metric.appendChild(main);
+    if (!strings.length) {
+      return metric;
+    }
+
+    const showLabels = this.showSolarStringLabels();
+    const list = this.el("div", `pwtv-metric-label pwtv-solar-strings${showLabels ? "" : " pwtv-solar-strings-values-only"}`);
+    strings.forEach((string) => {
+      const row = this.el("div", "pwtv-solar-string");
+      if (showLabels && string.label) {
+        row.appendChild(this.el("span", "pwtv-solar-string-name", string.label));
+      }
+      row.appendChild(this.el("span", "pwtv-solar-string-value", this.formatSolarStringProduction(string)));
+      list.appendChild(row);
+    });
+    metric.appendChild(list);
+    return metric;
+  },
+
+  renderBatteryMetric(snapshot) {
+    const metric = this.el("div", "pwtv-metric pwtv-metric-battery");
+    const valueNode = this.el("div", "pwtv-metric-value");
+    valueNode.appendChild(this.renderBatteryValue(snapshot));
+    metric.appendChild(valueNode);
+    metric.appendChild(this.el("div", "pwtv-metric-label", this.batteryLabel(snapshot)));
+
+    return metric;
+  },
+
   renderBatteryValue(snapshot) {
     const fragment = document.createDocumentFragment();
     fragment.appendChild(document.createTextNode(`${this.formatPower(snapshot.batteryPower)} `));
@@ -245,7 +429,7 @@ Module.register("MMM-PowerWallTV", {
 
   renderGridValue(snapshot) {
     const wrapper = this.el("span");
-    wrapper.appendChild(document.createTextNode(this.formatPower(snapshot.gridPower)));
+    wrapper.appendChild(document.createTextNode(this.formatGridPower(snapshot)));
 
     if (this.config.showGridCarbon && Number.isFinite(snapshot.gridFossilFuelPercentage)) {
       const renewables = Math.max(0, Math.min(100, 100 - snapshot.gridFossilFuelPercentage));
@@ -271,6 +455,28 @@ Module.register("MMM-PowerWallTV", {
     svg.setAttribute("class", `pwtv-flow-layer${this.config.animation ? "" : " pwtv-flow-paused"}`);
     svg.setAttribute("viewBox", "0 0 1280 720");
     svg.setAttribute("preserveAspectRatio", "none");
+    const maskId = `${this.instanceId}-pwtv-flow-mask`.replace(/[^a-zA-Z0-9_-]/g, "-");
+
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const mask = document.createElementNS("http://www.w3.org/2000/svg", "mask");
+    mask.setAttribute("id", maskId);
+    mask.setAttribute("maskUnits", "userSpaceOnUse");
+
+    const visible = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    visible.setAttribute("x", "0");
+    visible.setAttribute("y", "0");
+    visible.setAttribute("width", "1280");
+    visible.setAttribute("height", "720");
+    visible.setAttribute("fill", "white");
+    mask.appendChild(visible);
+
+    const connectorOccluder = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    connectorOccluder.setAttribute("points", "762.5,430 778.5,425.5 778.5,472.5 762.5,476.5");
+    connectorOccluder.setAttribute("fill", "black");
+    mask.appendChild(connectorOccluder);
+
+    defs.appendChild(mask);
+    svg.appendChild(defs);
 
     const threshold = Number(this.config.powerThresholdWatts) || 10;
     const flows = this.flowRoutes(snapshot, threshold);
@@ -280,6 +486,7 @@ Module.register("MMM-PowerWallTV", {
       path.setAttribute("class", "pwtv-flow");
       path.setAttribute("d", flow.d);
       path.setAttribute("pathLength", String(flow.pathLength || 200));
+      path.setAttribute("mask", `url(#${maskId})`);
       path.style.setProperty("--flow-color", flow.color);
       svg.appendChild(path);
     });
@@ -299,62 +506,70 @@ Module.register("MMM-PowerWallTV", {
       flows.push(route);
     };
 
-    const homeSource = this.dominantPowerSource(snapshot, threshold);
-    if (this.homePowerToDisplay(snapshot) > threshold && homeSource) {
-      add(homeSource, "home");
+    if (this.homePowerToDisplay(snapshot) > threshold) {
+      this.activeHomeSources(snapshot, threshold).forEach((source) => add(source, "home"));
     }
 
     if ((Number(snapshot.batteryPower) || 0) < -threshold) {
-      const batterySource = this.chargingSource(snapshot, threshold);
-      if (batterySource) {
-        add(batterySource, "battery");
-      }
+      this.activeBatteryChargeSources(snapshot, threshold).forEach((source) => add(source, "battery"));
     }
 
-    if (!this.isOffGrid(snapshot) && (Number(snapshot.gridPower) || 0) < -threshold) {
-      const exportSource = this.exportSource(snapshot, threshold);
-      if (exportSource) {
-        add(exportSource, "grid");
-      }
+    if (!this.isOffGrid(snapshot) && this.gridFlowDirection(snapshot) < 0) {
+      this.activeGridExportSources(snapshot, threshold).forEach((source) => add(source, "grid"));
     }
 
     return flows;
   },
 
+  flowSignature(snapshot) {
+    const threshold = Number(this.config.powerThresholdWatts) || 10;
+    return this.flowRoutes(snapshot, threshold)
+      .map((flow) => `${flow.color}|${flow.d}|${flow.pathLength || 200}`)
+      .join("||");
+  },
+
   flowRoute(source, destination) {
+    const solarToConnector = "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5";
+    const batteryToConnector = "M 671.9 472.5 Q 672.2 463.1 684.9 461.8 L 760.4 443.2";
+    const connectorJoin = "771.0 466.0";
+    const gridToConnector = `M 954.5 568.0 L 784.2 506.2 C 775.6 503.0 771.0 499.0 771.0 493.6 L ${connectorJoin}`;
+    const connectorToHome = "L 781.8 438.6 L 853.1 421.3";
+    const connectorToBattery = "L 760.4 443.2 L 684.9 461.8 Q 672.2 463.1 671.9 472.5";
+    const connectorToGrid = `L ${connectorJoin} L 771.0 493.6 C 771.0 499.0 775.6 503.0 784.2 506.2 L 954.5 568.0`;
+
     const routes = {
       solar: {
         home: {
           color: "#ffd84d",
-          d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5 L 781.8 438.6 L 853.1 421.3"
+          d: `${solarToConnector} ${connectorToHome}`
         },
         battery: {
           color: "#ffd84d",
-          d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5 L 760.4 443.2 L 684.9 461.8 Q 672.2 463.1 671.9 472.5"
+          d: `${solarToConnector} ${connectorToBattery}`
         },
         grid: {
           color: "#ffd84d",
-          d: "M 764.2 366.5 C 767.5 375.6 770.9 375.6 770.9 427.5 L 769.3 476.3 L 769.3 494.0 A 5.0 5.0 0 0 1 772.8 504.3 L 894.8 548.2"
+          d: `${solarToConnector} ${connectorToGrid}`
         }
       },
       battery: {
         home: {
           color: "#4fd26b",
-          d: "M 671.9 472.5 Q 672.2 463.1 684.9 461.8 L 760.4 443.2 L 781.8 438.6 L 853.1 421.3"
+          d: `${batteryToConnector} ${connectorToHome}`
         },
         grid: {
           color: "#4fd26b",
-          d: "M 671.9 472.5 Q 672.2 463.1 684.9 461.8 L 760.4 443.2 L 769.3 476.3 L 769.3 494.0 A 5.0 5.0 0 0 1 772.8 504.3 L 894.8 548.2"
+          d: `${batteryToConnector} ${connectorToGrid}`
         }
       },
       grid: {
         home: {
           color: "#9aa0a6",
-          d: "M 894.8 548.2 L 772.8 504.3 A 5.0 5.0 0 0 0 769.3 494.0 L 769.3 476.3 L 781.8 438.6 L 853.1 421.3"
+          d: `${gridToConnector} ${connectorToHome}`
         },
         battery: {
           color: "#9aa0a6",
-          d: "M 894.8 548.2 L 772.8 504.3 A 5.0 5.0 0 0 0 769.3 494.0 L 769.3 476.3 L 760.4 443.2 L 684.9 461.8 Q 672.2 463.1 671.9 472.5"
+          d: `${gridToConnector} ${connectorToBattery}`
         }
       }
     };
@@ -371,53 +586,119 @@ Module.register("MMM-PowerWallTV", {
     };
   },
 
-  dominantPowerSource(snapshot, threshold) {
+  activeHomeSources(snapshot, threshold) {
     const solarPower = Number(snapshot.solarPower) || 0;
     const batteryPower = Number(snapshot.batteryPower) || 0;
-    const gridPower = Number(snapshot.gridPower) || 0;
+    const sources = [];
 
-    if (solarPower > threshold && solarPower >= batteryPower && solarPower >= gridPower) {
-      return "solar";
-    }
-    if (batteryPower > threshold && batteryPower >= gridPower) {
-      return "battery";
-    }
-    if (gridPower > threshold) {
-      return "grid";
-    }
     if (solarPower > threshold) {
-      return "solar";
+      sources.push("solar");
     }
     if (batteryPower > threshold) {
-      return "battery";
+      sources.push("battery");
     }
-    return null;
+    if (this.gridFlowDirection(snapshot) > 0) {
+      sources.push("grid");
+    }
+
+    return sources;
   },
 
-  chargingSource(snapshot, threshold) {
+  activeBatteryChargeSources(snapshot, threshold) {
     const solarPower = Number(snapshot.solarPower) || 0;
-    const gridPower = Number(snapshot.gridPower) || 0;
+    const sources = [];
 
-    if (solarPower > threshold && solarPower >= gridPower) {
-      return "solar";
+    if (solarPower > threshold) {
+      sources.push("solar");
     }
-    if (gridPower > threshold) {
-      return "grid";
+    if (this.gridFlowDirection(snapshot) > 0) {
+      sources.push("grid");
     }
-    return solarPower > threshold ? "solar" : null;
+
+    return sources;
   },
 
-  exportSource(snapshot, threshold) {
+  activeGridExportSources(snapshot, threshold) {
     const solarPower = Number(snapshot.solarPower) || 0;
     const batteryPower = Number(snapshot.batteryPower) || 0;
+    const sources = [];
 
-    if (solarPower > threshold && solarPower >= batteryPower) {
-      return "solar";
+    if (solarPower > threshold) {
+      sources.push("solar");
     }
     if (batteryPower > threshold) {
-      return "battery";
+      sources.push("battery");
     }
-    return solarPower > threshold ? "solar" : null;
+
+    return sources;
+  },
+
+  applyGridHysteresis(snapshot, previousSnapshot) {
+    const normalized = Object.assign({}, snapshot);
+    const rawGridPower = Number(snapshot.gridPower) || 0;
+    const currentDirection = this.powerDirection(rawGridPower, this.gridHysteresisWatts());
+
+    normalized.gridPowerRaw = rawGridPower;
+
+    if (currentDirection !== 0) {
+      normalized.gridPower = rawGridPower;
+      normalized.gridPowerDirection = currentDirection;
+      return normalized;
+    }
+
+    const previousDirection = previousSnapshot ? this.gridPowerDirection(previousSnapshot) : 0;
+    normalized.gridPower = this.gridPowerWithDirection(rawGridPower, previousDirection);
+    normalized.gridPowerDirection = previousDirection;
+    return normalized;
+  },
+
+  gridHysteresisWatts() {
+    return Math.max(0, Number(this.config.gridHysteresisWatts) || 30);
+  },
+
+  gridAnimationThresholdWatts() {
+    const configured = Number(this.config.gridAnimationThresholdWatts);
+    if (Number.isFinite(configured)) {
+      return Math.max(0, configured);
+    }
+    return this.gridHysteresisWatts();
+  },
+
+  gridFlowDirection(snapshot) {
+    const rawGridPower = Number(snapshot && snapshot.gridPowerRaw);
+    const gridPower = Number.isFinite(rawGridPower) ? rawGridPower : Number(snapshot && snapshot.gridPower) || 0;
+    return this.powerDirection(gridPower, this.gridAnimationThresholdWatts());
+  },
+
+  gridPowerDirection(snapshot) {
+    const explicitDirection = Number(snapshot && snapshot.gridPowerDirection);
+    if (explicitDirection > 0) {
+      return 1;
+    }
+    if (explicitDirection < 0) {
+      return -1;
+    }
+    return this.powerDirection(Number(snapshot && snapshot.gridPower) || 0, this.gridHysteresisWatts());
+  },
+
+  gridPowerWithDirection(watts, direction) {
+    if (direction < 0) {
+      return -Math.abs(watts);
+    }
+    if (direction > 0) {
+      return Math.abs(watts);
+    }
+    return 0;
+  },
+
+  powerDirection(watts, threshold) {
+    if (watts > threshold) {
+      return 1;
+    }
+    if (watts < -threshold) {
+      return -1;
+    }
+    return 0;
   },
 
   preloadImages() {
@@ -493,17 +774,21 @@ Module.register("MMM-PowerWallTV", {
   },
 
   homeImageName() {
-    if (!this.snapshot || !this.hasWallConnector(this.snapshot)) {
+    return this.homeImageNameFor(this.snapshot);
+  },
+
+  homeImageNameFor(snapshot) {
+    if (!snapshot || !this.hasWallConnector(snapshot)) {
       return "home-large.png";
     }
 
-    const power = this.wallConnectorPower(this.snapshot);
-    const pluggedIn = this.snapshot.wallConnectors.some((connector) => Number(connector.wallConnectorState) === 4);
+    const power = this.wallConnectorPower(snapshot);
+    const pluggedIn = snapshot.wallConnectors.some((connector) => Number(connector.wallConnectorState) === 4);
     if (power <= 10 && !pluggedIn) {
       return "home-charger-empty.png";
     }
 
-    return this.hasCybertruck(this.snapshot) ? "home-charger-cybertruck.png" : "home-charger.png";
+    return this.hasCybertruck(snapshot) ? "home-charger-cybertruck.png" : "home-charger.png";
   },
 
   hasCybertruck(snapshot) {
@@ -543,7 +828,16 @@ Module.register("MMM-PowerWallTV", {
 
   batteryLabel(snapshot) {
     const count = Number(snapshot.batteryCount) || 0;
-    return count > 0 ? `POWERWALL / ${count.toFixed(0)}x` : "POWERWALL";
+    const capacityKwh = Math.round(count * 13.5);
+    return capacityKwh > 0 ? `POWERWALL ${capacityKwh.toFixed(0)} kWh` : "POWERWALL";
+  },
+
+  generatedTodayValue(snapshot) {
+    const wh = Number(snapshot.solarEnergyExportedWh);
+    if (!snapshot.solarEnergyToday || !Number.isFinite(wh)) {
+      return "";
+    }
+    return `${this.formatNumber(Math.max(0, wh) / 1000)} kWh`;
   },
 
   gridLabel(snapshot) {
@@ -588,6 +882,66 @@ Module.register("MMM-PowerWallTV", {
     return (Number(snapshot.solarPower) || 0) > Math.abs(Number(snapshot.batteryPower) || 0) ? "#ffd84d" : "#4fd26b";
   },
 
+  solarStringStats(snapshot) {
+    const source = snapshot.solarStrings || {};
+    if (!source || !Object.keys(source).length) {
+      return [];
+    }
+
+    const tedapiConfig = this.config.tedapi || {};
+    const groups = this.solarStringGroups(tedapiConfig);
+    const labels = Array.isArray(tedapiConfig.solarStringLabels) ? tedapiConfig.solarStringLabels : [];
+    const expectedOutputFactor = this.solarStringExpectedOutputFactor(tedapiConfig);
+    const maxWatts = (Number(tedapiConfig.solarStringPanelCount) || 12) *
+      (Number(tedapiConfig.solarStringPanelWatts) || 480) *
+      expectedOutputFactor;
+
+    return groups.map((group, index) => {
+      const label = labels[index] || group.join("+");
+      const power = group.reduce((total, key) => total + this.solarStringPower(source, key), 0);
+      const percent = maxWatts > 0 ? Math.max(0, power / maxWatts * 100) : 0;
+      return {
+        label,
+        power,
+        percent
+      };
+    });
+  },
+
+  solarStringGroups(tedapiConfig) {
+    if (Array.isArray(tedapiConfig.solarStringGroups) && tedapiConfig.solarStringGroups.length) {
+      return tedapiConfig.solarStringGroups
+        .map((group) => Array.isArray(group) ? group : [group])
+        .map((group) => group.map((key) => String(key)).filter(Boolean))
+        .filter((group) => group.length);
+    }
+
+    return [["A", "B"], ["C", "D"], ["E", "F"]];
+  },
+
+  solarStringPower(source, key) {
+    const reading = source[key] || source[String(key).toUpperCase()] || source[String(key).toLowerCase()] || {};
+    return Number(reading.Power ?? reading.power ?? reading.PVAC_PVMeasuredPower ?? 0) || 0;
+  },
+
+  solarStringExpectedOutputFactor(tedapiConfig) {
+    const factor = Number(tedapiConfig && tedapiConfig.solarStringExpectedOutputFactor);
+    if (Number.isFinite(factor) && factor > 0) {
+      return factor;
+    }
+    return 0.72;
+  },
+
+  showSolarStringLabels() {
+    return this.config.tedapi && this.config.tedapi.showSolarStringLabels === true;
+  },
+
+  formatSolarStringProduction(string) {
+    const watts = Math.round(Number(string.power) || 0);
+    const percent = Math.round(Number(string.percent) || 0);
+    return `${watts}W / ${percent}%`;
+  },
+
   renewablesClass(value) {
     if (value < 25) {
       return "pwtv-renewables-low";
@@ -602,7 +956,27 @@ Module.register("MMM-PowerWallTV", {
   },
 
   formatPower(watts) {
-    return `${this.formatNumber((Number(watts) || 0) / 1000)} kW`;
+    return `${this.withoutNegativeZero(this.formatNumber((Number(watts) || 0) / 1000))} kW`;
+  },
+
+  formatGridPower(snapshot) {
+    const watts = Number(snapshot && snapshot.gridPower) || 0;
+    const direction = this.gridPowerDirection(snapshot);
+    if (direction < 0 && Math.abs(watts) < this.gridHysteresisWatts()) {
+      const displayValue = this.formatNumber(Math.abs(watts) / 1000);
+      const sign = this.isZeroDisplayValue(displayValue) ? "" : "-";
+      return `${sign}${displayValue} kW`;
+    }
+    return this.formatPower(watts);
+  },
+
+  withoutNegativeZero(value) {
+    const text = String(value);
+    return this.isZeroDisplayValue(text) ? text.replace(/^-/, "") : text;
+  },
+
+  isZeroDisplayValue(value) {
+    return Number(value) === 0;
   },
 
   formatPercent(value, digits) {

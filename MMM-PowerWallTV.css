@@ -162,17 +162,87 @@
   margin-top: 0.45cqw;
 }
 
+.pwtv-summary-generated {
+  margin-top: 6px;
+  margin-top: 0.54cqw;
+}
+
+.pwtv-summary-generated-label {
+  margin-top: 0;
+  text-align: left;
+}
+
+.pwtv-summary-generated-value {
+  margin-top: 2px;
+  margin-top: 0.18cqw;
+}
+
+.pwtv-metric-subline {
+  margin-top: 3px;
+  margin-top: 0.27cqw;
+}
+
 .pwtv-metric-solar {
-  left: 77%;
+  align-items: center;
+  column-gap: 0.9em;
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: end;
+  left: auto;
+  right: 5%;
+  text-align: right;
   top: 16%;
-  transform: translate(-50%, -50%) scale(1.2);
+  transform: translate(0, -50%) scale(1.2);
+  transform-origin: right center;
+}
+
+.pwtv-solar-main {
+  justify-self: end;
+  width: max-content;
+}
+
+.pwtv-solar-main .pwtv-metric-value {
+  justify-content: flex-end;
+}
+
+.pwtv-solar-strings {
+  color: rgba(255, 255, 255, 0.68);
+  column-gap: 0.55em;
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: end;
+  justify-self: end;
+  margin-top: 0;
+  position: static;
+  row-gap: 0.18em;
+  text-align: right;
+  transform: none;
+  width: max-content;
+}
+
+.pwtv-solar-strings-values-only {
+  grid-template-columns: max-content;
+}
+
+.pwtv-solar-string {
+  display: contents;
+}
+
+.pwtv-solar-string-name {
+  text-align: left;
+}
+
+.pwtv-solar-string-value {
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .pwtv-metric-home {
   left: auto;
   right: 5%;
   text-align: right;
-  top: 33%;
+  top: 38%;
   transform: translate(0, -50%) scale(1.2);
   transform-origin: right center;
 }

@@ -67,6 +67,52 @@ The local Gateway calls are:
 
 Wall Connector support is optional and uses `GET http://<wallConnectorIP>/api/1/vitals`.
 
+## TEDAPI Config
+
+Powerwall 3 systems do not expose the older local JSON portal API. Use TEDAPI instead, with the full gateway Wi-Fi password from the Tesla QR label. The MagicMirror host must be able to reach `192.168.91.1`, either by joining the Powerwall Wi-Fi or through a working static route.
+
+TEDAPI support uses the Python `pypowerwall` package:
+
+```bash
+cd ~/MagicMirror/modules/MMM-PowerWallTV
+python3 -m venv .venv
+.venv/bin/python -m pip install pypowerwall
+```
+
+```js
+{
+  module: "MMM-PowerWallTV",
+  position: "fullscreen_above",
+  config: {
+    mode: "tedapi",
+    width: "100%",
+    maxWidth: "1050px",
+    tedapi: {
+      gatewayIP: "192.168.91.1",
+      gatewayPassword: "your-full-gateway-wifi-password",
+      python: "/home/pi/MagicMirror/modules/MMM-PowerWallTV/.venv/bin/python",
+      siteName: "Home sweet home",
+      timezone: "Australia/Melbourne",
+      timeoutSeconds: 10,
+      retryAttempts: 3,
+      retryDelayMs: 1500,
+      solarStringGroups: [["A", "B"], ["C", "D"], ["E", "F"]],
+      showSolarStringLabels: false,
+      solarStringPanelCount: 12,
+      solarStringPanelWatts: 480,
+      solarStringExpectedOutputFactor: 0.72,
+      aggregateHistoryPath: "~/.cache/MMM-PowerWallTV/tedapi-aggregates.json",
+      aggregateHistoryDays: 30,
+      solarIntegrationMaxGapSeconds: 300
+    }
+  }
+}
+```
+
+For Australian Powerwall 3 TEDAPI data, the display groups paired inverter string readings as `A+B`, `C+D`, and `E+F` by default. The displayed rows are values-only unless `showSolarStringLabels` is set to `true`. String percentages are calculated against the configured panel nameplate power multiplied by `solarStringExpectedOutputFactor`, which defaults to `0.72`.
+
+TEDAPI mode asks the local gateway for `/api/meters/aggregates` and stores one aggregate meter reading per local hour. If the gateway exposes a non-zero cumulative solar meter counter, the default `~/.cache/MMM-PowerWallTV/tedapi-aggregates.json` history is used to show `GENERATED TODAY` by subtracting the latest cached solar meter reading before local midnight from the current cumulative solar reading. Some Powerwall 3 TEDAPI/v1r systems report live solar power but leave aggregate energy counters at `0`; on those systems the module estimates `GENERATED TODAY` locally by integrating live solar watts over time while MagicMirror is running.
+
 ## Fleet API Token Config
 
 This module does not implement the Tesla OAuth browser login flow, but it can use an existing Fleet API access token or refresh token. Tesla refresh tokens are single-use, so the module saves the rotated token to `.pwtv-fleet-tokens.json` by default.
@@ -99,13 +145,16 @@ Fleet mode also fetches `calendar_history?kind=energy&period=day` to show the "E
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `mode` | `"demo"` | `"demo"`, `"local"`, or `"fleet"` |
+| `mode` | `"demo"` | `"demo"`, `"local"`, `"tedapi"`, or `"fleet"` |
 | `updateInterval` | `10000` | Refresh interval in milliseconds |
 | `width` | `"100%"` | CSS width for the 16:9 scene |
 | `maxWidth` | `"1050px"` | Maximum scene width; use this to size lower-third tiles |
 | `cornerRadius` | `"18px"` | Rounded corner radius for the whole module |
 | `domUpdateAnimationSpeed` | `0` | MagicMirror redraw fade speed; keep at `0` to avoid flashing every refresh |
 | `animation` | `true` | Enables animated power-flow traces |
+| `gridHysteresisWatts` | `30` | Import/export deadband in watts; readings inside the band keep the previous grid direction to avoid flicker |
+| `gridAnimationThresholdWatts` | `30` | Minimum raw grid import/export watts required before grid flow animations are shown |
+| `staleDataOnError` | `true` | Keeps the last good snapshot visible when a refresh fails |
 | `imageScale` | `1.2` | Zooms the home scene artwork and aligned overlays |
 | `imageHorizontalOffset` | `"-2%"` | Moves the zoomed home scene left/right |
 | `imageVerticalOffset` | `"3%"` | Moves the zoomed home scene up/down |
@@ -131,6 +180,14 @@ Fleet-specific options:
 | `fleet.persistTokens` | `true` | Save refreshed tokens to `tokenStorePath` |
 | `fleet.energySiteId` | `""` | Tesla energy site ID |
 | `fleet.siteName` | `""` | Label shown in the module |
+
+TEDAPI-specific options:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `tedapi.aggregateHistoryPath` | `"~/.cache/MMM-PowerWallTV/tedapi-aggregates.json"` | Local cache of hourly aggregate meter readings; set to `""` for memory-only history |
+| `tedapi.aggregateHistoryDays` | `30` | Number of days of hourly aggregate meter readings to retain |
+| `tedapi.solarIntegrationMaxGapSeconds` | `300` | Maximum gap to integrate when TEDAPI has live solar watts but no cumulative solar Wh counter |
 
 For a lower-third tile, prefer:
 
