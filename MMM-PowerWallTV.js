@@ -6,6 +6,11 @@ Module.register("MMM-PowerWallTV", {
     updateInterval: 10 * 1000,
     retryInterval: 30 * 1000,
     staleDataOnError: true,
+    BatteryExportToGridLimit: {
+      active: false,
+      lowerThreshold: 70,
+      upperThreshold: 90
+    },
     width: "100%",
     maxWidth: "1050px",
     cornerRadius: "18px",
@@ -41,6 +46,8 @@ Module.register("MMM-PowerWallTV", {
     tedapi: {
       gatewayIP: "192.168.91.1",
       gatewayPassword: "",
+      gatewayPasswordFile: "",
+      rsaKeyPath: "",
       gwPwd: "",
       python: "python3",
       siteName: "",

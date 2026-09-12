@@ -13,6 +13,7 @@ module.exports = NodeHelper.create({
     this.fleetTokenMemory = new Map();
     this.fleetSolarEnergyCache = new Map();
     this.tedapiAggregateHistoryMemory = new Map();
+    this.tedapiRequests = new Map();
   },
 
   socketNotificationReceived(notification, payload) {
@@ -44,8 +45,8 @@ module.exports = NodeHelper.create({
       snapshot = this.demoSnapshot(normalized);
     } else if (normalized.mode === "fleet") {
       snapshot = await this.fetchFleetSnapshot(normalized);
-    } else if (normalized.mode === "tedapi") {
-      snapshot = await this.fetchTedapiSnapshot(normalized);
+    } else if (normalized.mode === "tedapi" || normalized.mode === "v1r") {
+      snapshot = Object.assign({}, await this.fetchTedapiSnapshot(normalized));
     } else {
       snapshot = await this.fetchLocalSnapshot(normalized);
     }
@@ -74,6 +75,18 @@ module.exports = NodeHelper.create({
   },
 
   normalizeConfig(config) {
+    const BatteryExportToGridLimit = Object.assign({
+      active: false,
+      lowerThreshold: 70,
+      upperThreshold: 90
+    }, config.BatteryExportToGridLimit || {});
+    const limit = BatteryExportToGridLimit;
+    if (typeof limit.active !== "boolean" ||
+        typeof limit.lowerThreshold !== "number" || typeof limit.upperThreshold !== "number" ||
+        !Number.isFinite(limit.lowerThreshold) || !Number.isFinite(limit.upperThreshold) ||
+        limit.lowerThreshold < 0 || limit.lowerThreshold >= limit.upperThreshold || limit.upperThreshold > 100) {
+      throw new Error("BatteryExportToGridLimit requires active: true/false and 0 <= lowerThreshold < upperThreshold <= 100.");
+    }
     const local = Object.assign({
       gatewayIP: "demo",
       email: "",
@@ -90,6 +103,8 @@ module.exports = NodeHelper.create({
     const tedapi = Object.assign({
       gatewayIP: local.gatewayIP || "192.168.91.1",
       gatewayPassword: "",
+      gatewayPasswordFile: "",
+      rsaKeyPath: "",
       gwPwd: "",
       python: "python3",
       siteName: local.siteName || "",
@@ -110,8 +125,8 @@ module.exports = NodeHelper.create({
     tedapi.gatewayIP = tedapi.gatewayIP || local.gatewayIP || "192.168.91.1";
     tedapi.siteName = tedapi.siteName || local.siteName || "";
     tedapi.gatewayPassword = tedapi.gatewayPassword || tedapi.gwPwd || local.gatewayPassword || local.gwPwd || (
-      String(config.mode || "").toLowerCase() === "tedapi" ? local.password : ""
-    );
+      ["tedapi", "v1r"].includes(String(config.mode || "").toLowerCase()) ? local.password : ""
+    ) || process.env.PWTV_TEDAPI_GATEWAY_PASSWORD || "";
 
     const fleet = Object.assign({
       baseURL: "https://fleet-api.prd.na.vn.cloud.tesla.com",
@@ -130,8 +145,14 @@ module.exports = NodeHelper.create({
       zone: ""
     }, config.electricityMaps || {});
 
+    const mode = String(config.mode || "demo").toLowerCase();
+    if (limit.active && !(mode === "v1r" || (mode === "tedapi" && tedapi.rsaKeyPath))) {
+      throw new Error("BatteryExportToGridLimit requires option 5 (v1r) and a registered RSA key.");
+    }
+
     return {
-      mode: String(config.mode || "demo").toLowerCase(),
+      mode,
+      BatteryExportToGridLimit,
       local,
       tedapi,
       fleet,
@@ -141,26 +162,62 @@ module.exports = NodeHelper.create({
   },
 
   async fetchTedapiSnapshot(config) {
+    // Multiple browser clients can request the same snapshot together. Share
+    // the in-flight read/control cycle so it cannot issue duplicate writes.
+    const key = JSON.stringify([config.tedapi, config.BatteryExportToGridLimit, config.mode]);
+    if (this.tedapiRequests.has(key)) {
+      return this.tedapiRequests.get(key);
+    }
+    const request = this.readTedapiSnapshot(config);
+    this.tedapiRequests.set(key, request);
+    try {
+      return await request;
+    } finally {
+      this.tedapiRequests.delete(key);
+    }
+  },
+
+  async readTedapiSnapshot(config) {
     const gatewayIP = String(config.tedapi.gatewayIP || "").trim();
     const gatewayPassword = String(config.tedapi.gatewayPassword || "").trim();
+    const rsaKeyPath = this.resolveTedapiFile(config.tedapi.rsaKeyPath);
+    const passwordFile = this.resolveTedapiFile(config.tedapi.gatewayPasswordFile);
+    const useV1r = config.mode === "v1r" || Boolean(rsaKeyPath);
     if (!gatewayIP) {
       throw new Error("Missing tedapi.gatewayIP.");
     }
-    if (!gatewayPassword) {
-      throw new Error("Missing tedapi.gatewayPassword.");
+    if (!gatewayPassword && !passwordFile) {
+      throw new Error("Set tedapi.gatewayPasswordFile or PWTV_TEDAPI_GATEWAY_PASSWORD.");
+    }
+    if (useV1r && !rsaKeyPath) {
+      throw new Error("Option 5 requires tedapi.rsaKeyPath pointing to a registered RSA key.");
     }
 
     const timeoutSeconds = Math.max(5, Number(config.tedapi.timeoutSeconds) || 10);
     const retryAttempts = Math.max(1, Number(config.tedapi.retryAttempts) || 3);
     const retryDelayMs = Math.max(0, Number(config.tedapi.retryDelayMs) || 1500);
-    const payload = await this.execJsonFile(String(config.tedapi.python || "python3"), [
+    const args = [
       path.join(__dirname, "scripts", "fetch-tedapi.py"),
       "--host", gatewayIP,
       "--site-name", String(config.tedapi.siteName || ""),
       "--timezone", String(config.tedapi.timezone || this.localTimeZone()),
-      "--timeout", String(timeoutSeconds)
-    ], {
-      timeoutMs: Math.max(config.timeoutMs, timeoutSeconds * 1000 + 10000),
+      "--timeout", String(timeoutSeconds),
+      "--transport", useV1r ? "v1r" : "wifi"
+    ];
+    if (rsaKeyPath) {
+      args.push("--rsa-key-path", rsaKeyPath);
+    }
+    if (passwordFile) {
+      args.push("--password-file", passwordFile);
+    }
+    const limit = config.BatteryExportToGridLimit;
+    args.push("--export-lower-threshold", String(limit.lowerThreshold),
+      "--export-upper-threshold", String(limit.upperThreshold));
+    if (limit.active) {
+      args.push("--battery-export-limit");
+    }
+    const payload = await this.execJsonFile(String(config.tedapi.python || "python3"), args, {
+      timeoutMs: Math.max(config.timeoutMs, timeoutSeconds * 1000 * 6 + 10000),
       attempts: retryAttempts,
       retryDelayMs,
       env: {
@@ -178,21 +235,24 @@ module.exports = NodeHelper.create({
       solarEnergyEstimated: false,
       solarEnergySource: "meter"
     };
-    let infoMessage = "";
+    let infoMessage = payload.batteryExportToGridLimit && payload.batteryExportToGridLimit.error || "";
     try {
       tedapiEnergy = this.updateTedapiAggregateHistory(config, aggregateMeters, Number(payload.solarPower) || 0);
     } catch (error) {
-      infoMessage = `TEDAPI aggregate cache unavailable: ${error.message}`;
+      infoMessage = [infoMessage, `TEDAPI aggregate cache unavailable: ${error.message}`].filter(Boolean).join(" ");
     }
 
     return {
-      source: "tedapi",
+      source: useV1r ? "v1r" : "tedapi",
       siteName: config.tedapi.siteName || payload.siteName || "",
       solarPower: Number(payload.solarPower) || 0,
       homePower: Number(payload.homePower) || 0,
       batteryPower: Number(payload.batteryPower) || 0,
       gridPower: Number(payload.gridPower) || 0,
       batteryPercentage: Number(payload.batteryPercentage) || 0,
+      batteryPercentageScale: payload.batteryPercentageScale || "raw",
+      gridExportMode: payload.gridExportMode || null,
+      batteryExportToGridLimit: payload.batteryExportToGridLimit || null,
       batteryCount: Number(payload.batteryCount) || 0,
       timeRemainingHours: Number(payload.timeRemainingHours) || 0,
       solarStrings: payload.solarStrings || {},
@@ -216,6 +276,17 @@ module.exports = NodeHelper.create({
         }
       }
     };
+  },
+
+  resolveTedapiFile(value) {
+    const configured = String(value || "").trim();
+    if (!configured) {
+      return "";
+    }
+    if (configured.startsWith("~/")) {
+      return path.join(os.homedir(), configured.slice(2));
+    }
+    return path.isAbsolute(configured) ? configured : path.join(__dirname, configured);
   },
 
   updateTedapiAggregateHistory(config, aggregateMeters, solarPowerW = 0) {

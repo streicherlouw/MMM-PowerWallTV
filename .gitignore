@@ -1,2 +1,7 @@
 .pwtv-fleet-tokens.json
 .pwtv-fleet-tokens.json.tmp
+.venv/
+.auth/
+__pycache__/
+*.pyc
+.pwtv-tedapi-aggregates*.json
