@@ -161,9 +161,9 @@ To roll back, restore the saved configuration and your saved code revision, then
 
 ### Migrating the existing Wi-Fi deployment
 
-Keep the current display and `tedapi` settings, change `mode` to `"v1r"` and `tedapi.gatewayIP` to the reachable LAN address, then add `rsaKeyPath` and `gatewayPasswordFile`. Remove `gatewayPassword` / `gwPwd` from `config.js` after creating the password file. Keep the existing aggregate-history file; history is partitioned by gateway address, site name and timezone, so the new LAN address starts a new series and may initially have no midnight baseline.
+Keep the current display and `tedapi` settings, change `mode` to `"v1r"` and `tedapi.gatewayIP` to the reachable LAN address, then add `rsaKeyPath` and `gatewayPasswordFile`. Remove `gatewayPassword` / `gwPwd` from `config.js` after creating the password file. Keep the existing aggregate-history file; history is partitioned by gateway address, site name and timezone, so the new LAN address starts a new series. The module can recover the same-day total from a unique legacy Wi-Fi series with the same non-empty site name and timezone; the handover day is marked partial.
 
-The hourly-meter and live-power-integration logic is unchanged. A cumulative solar meter is a lifetime counter, not automatically today's generation. Until the relevant history baseline exists, the module does not present the whole counter as generation today.
+The v1r `solar.energy_exported` value is cumulative Wh. The module subtracts a persisted daily baseline to show today's production; it never displays the lifetime counter as today's total. Keep `showSummary: true` to display this counter in the upper-left summary.
 
 Missing keys, unverified keys, authentication errors or unavailable readings produce a refresh error. With `staleDataOnError: true`, the last good display remains visible. A missing Python package requires installation in `tedapi.python`'s environment. A connection timeout requires checking LAN reachability; changing the address alone cannot enable v1r on an unsupported interface.
 
@@ -291,7 +291,13 @@ python3 -m venv .venv
 
 For Australian Powerwall 3 TEDAPI data, the display groups paired inverter string readings as `A+B`, `C+D`, and `E+F` by default. The displayed rows are values-only unless `showSolarStringLabels` is set to `true`. String percentages are calculated against the configured panel nameplate power multiplied by `solarStringExpectedOutputFactor`, which defaults to `0.72`.
 
-TEDAPI mode asks the local gateway for `/api/meters/aggregates` and stores one aggregate meter reading per local hour. If the gateway exposes a non-zero cumulative solar meter counter, the default `~/.cache/MMM-PowerWallTV/tedapi-aggregates.json` history is used to show `GENERATED TODAY` by subtracting the latest cached solar meter reading before local midnight from the current cumulative solar reading. Some Powerwall 3 TEDAPI/v1r systems report live solar power but leave aggregate energy counters at `0`; on those systems the module estimates `GENERATED TODAY` locally by integrating live solar watts over time while MagicMirror is running.
+The upper-left `GENERATED TODAY` counter uses v1r `/api/meters/aggregates` → `solar.energy_exported` (cumulative Wh). Each refresh subtracts a fixed daily anchor, then converts Wh to kWh. A separate daily state and the latest meter sample are persisted alongside hourly history in `~/.cache/MMM-PowerWallTV/tedapi-aggregates.json`. This prevents hourly updates or MagicMirror restarts from moving the baseline.
+
+The day follows `tedapi.timezone`. At rollover, the last sample from the previous day is used only if it was recorded within five minutes before midnight; otherwise the first available reading today becomes the anchor. A first reading within five minutes after midnight is treated as the day boundary. Starting later without a midnight baseline shows `GENERATED TODAY (PARTIAL)` and counts production from the earliest saved reading today. Missing readings show `— kWh` instead of hiding the counter. Meter resets preserve production already observed and mark the day partial.
+
+When moving from the Wi-Fi address `192.168.91.1`, a unique saved series with the same non-empty site name and timezone can supply its earlier same-day integrated total. The module adds subsequent observed v1r meter growth, displays `≈`, and marks this transition day partial because production during the connection gap cannot be recovered from a lifetime counter. No credentials or manual baseline edits are needed. Normal daily tracking resumes at the next observed midnight boundary.
+
+Legacy gateways whose energy counters remain zero still estimate production by integrating live solar watts while MagicMirror runs. Back up the aggregate-history file before upgrades and keep it across restarts. Upgrading an existing installation requires updating the module and restarting MagicMirror; no RSA re-registration is needed for this display fix.
 
 ## Fleet API Token Config
 

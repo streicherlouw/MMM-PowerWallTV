@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-12 — Restore daily solar production
+
+- Restore the upper-left daily generation counter using v1r `solar.energy_exported` counter deltas.
+- Persist a fixed daily anchor and latest meter sample across hourly history updates and restarts.
+- Recover earlier Wi-Fi production during migration, clearly marking incomplete and estimated totals.
+- Handle timezone day rollover, stale history and meter resets; keep unavailable readings visible.
+- Added seven regression tests; all 35 module tests pass.
+
 ## 2026-09-12 — Option 5 LAN access and battery export limits
 
 - Added Powerwall 3 v1r LAN access using a registered RSA-4096 key and pyPowerwall 0.17.3.

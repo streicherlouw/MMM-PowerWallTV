@@ -349,7 +349,8 @@ Module.register("MMM-PowerWallTV", {
     const generatedToday = this.generatedTodayValue(snapshot);
     if (generatedToday) {
       const generated = this.el("div", "pwtv-summary-generated");
-      generated.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label", "GENERATED TODAY"));
+      generated.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
+        snapshot.solarEnergyPartial ? "GENERATED TODAY (PARTIAL)" : "GENERATED TODAY"));
       generated.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", generatedToday));
       summary.appendChild(generated);
     }
@@ -842,9 +843,9 @@ Module.register("MMM-PowerWallTV", {
   generatedTodayValue(snapshot) {
     const wh = Number(snapshot.solarEnergyExportedWh);
     if (!snapshot.solarEnergyToday || !Number.isFinite(wh)) {
-      return "";
+      return snapshot.source === "v1r" || snapshot.source === "tedapi" ? "— kWh" : "";
     }
-    return `${this.formatNumber(Math.max(0, wh) / 1000)} kWh`;
+    return `${snapshot.solarEnergyEstimated ? "≈ " : ""}${this.formatNumber(Math.max(0, wh) / 1000)} kWh`;
   },
 
   gridLabel(snapshot) {

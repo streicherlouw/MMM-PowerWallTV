@@ -128,3 +128,100 @@ test("control failures retain telemetry and show an info message", async () => {
   assert.equal(snapshot.solarPower, 1234);
   assert.match(snapshot.infoMessage, /write not confirmed/);
 });
+
+function energyHarness() {
+  const h = helper();
+  const config = h.normalizeConfig({ mode: "v1r", tedapi: { gatewayIP: "10.0.0.98", siteName: "Home", timezone: "Australia/Melbourne" } });
+  const store = { sites: {} };
+  h.loadTedapiAggregateHistoryStore = () => store;
+  h.saveTedapiAggregateHistoryStore = () => {};
+  const key = h.tedapiAggregateHistoryKey(config, "Australia/Melbourne");
+  const site = store.sites[key] = { siteName: "Home", timeZone: "Australia/Melbourne", readings: [] };
+  const read = (wh, at) => h.updateSolarMeterDay(site, store, key, wh, new Date(at),
+    h.localTimeParts(new Date(at), "Australia/Melbourne"), "Australia/Melbourne");
+  return { h, config, store, site, read };
+}
+
+test("midday startup stays visible, tracks meter deltas and survives restart", () => {
+  const { h, site, store, config } = energyHarness();
+  let result = h.updateTedapiAggregateHistory(config, { solar: { energy_exported: 4600000 } });
+  assert.equal(result.hasBaseline, true);
+  assert.equal(result.solarEnergyTodayWh, 0);
+  const restarted = helper();
+  restarted.loadTedapiAggregateHistoryStore = () => JSON.parse(JSON.stringify(store));
+  restarted.saveTedapiAggregateHistoryStore = () => {};
+  result = restarted.updateTedapiAggregateHistory(config, { solar: { energy_exported: 4601234 } });
+  assert.equal(result.solarEnergyTodayWh, 1234);
+  assert.equal(result.solarEnergySource, "meter");
+  assert.equal(site.readings.length, 1);
+});
+
+test("midnight anchor is frozen even as readings advance during hour zero", () => {
+  const { read } = energyHarness();
+  assert.equal(read(100000, "2026-09-11T14:00:10Z").partial, false);
+  assert.equal(read(100100, "2026-09-11T14:30:00Z").totalWh, 100);
+  assert.equal(read(101000, "2026-09-12T03:00:00Z").totalWh, 1000);
+  read(110000, "2026-09-12T13:59:50Z");
+  const next = read(110001, "2026-09-12T14:00:10Z");
+  assert.equal(next.localDate, "2026-09-13");
+  assert.equal(next.totalWh, 1);
+  assert.equal(next.partial, false);
+});
+
+test("restart after midnight uses yesterday's last near-midnight sample", () => {
+  const { read, site } = energyHarness();
+  read(100000, "2026-09-11T13:59:50Z");
+  const next = read(120000, "2026-09-12T02:00:00Z");
+  assert.equal(next.totalWh, 20000);
+  assert.equal(next.partial, false);
+  assert.equal(site.meterDay.baselineWh, 100000);
+});
+
+test("stale previous-day counters and zero Wi-Fi counters cannot become today's baseline", () => {
+  const { read, site } = energyHarness();
+  site.readings = [
+    { localDate: "2026-09-10", observedAt: "2026-09-10T00:00:00Z", solarEnergyExportedWh: 90000, solarEnergySource: "meter" },
+    { localDate: "2026-09-12", observedAt: "2026-09-11T14:00:00Z", solarEnergyExportedWh: 0, solarEnergySource: "integrated_power" }
+  ];
+  const next = read(120000, "2026-09-12T02:00:00Z");
+  assert.equal(next.totalWh, 0);
+  assert.equal(next.partial, true);
+});
+
+test("migration recovers stored legacy production and adds only observed v1r counter growth", () => {
+  const { read, site, store } = energyHarness();
+  store.sites.legacy = { gatewayIP: "192.168.91.1", siteName: "Home", timeZone: "Australia/Melbourne",
+    daily: { localDate: "2026-09-12", solarEnergyTodayWh: 58000 },
+    lastSample: { observedAt: "2026-09-12T06:46:00Z" } };
+  site.readings = [{ localDate: "2026-09-12", observedAt: "2026-09-12T06:59:00Z",
+    solarEnergyExportedWh: 4600000, solarEnergySource: "meter" }];
+  const day = read(4601200, "2026-09-12T09:00:00Z");
+  assert.equal(day.totalWh, 59200);
+  assert.equal(day.partial, true);
+  assert.equal(day.estimated, true);
+  assert.equal(read(4601300, "2026-09-12T09:05:00Z").totalWh, 59300);
+});
+
+test("counter reset preserves observed daily production without a lifetime jump", () => {
+  const { read } = energyHarness();
+  read(4600000, "2026-09-12T02:00:00Z");
+  read(4601000, "2026-09-12T03:00:00Z");
+  assert.equal(read(10, "2026-09-12T04:00:00Z").totalWh, 1000);
+  assert.equal(read(110, "2026-09-12T05:00:00Z").totalWh, 1100);
+});
+
+test("daily summary renders zero, partial estimates and unavailable v1r readings", () => {
+  let frontend;
+  vm.runInNewContext(fs.readFileSync(path.join(directory, "MMM-PowerWallTV.js"), "utf8"), {
+    Module: { register: (_, definition) => { frontend = definition; } }
+  });
+  frontend.formatNumber = n => n.toFixed(1);
+  frontend.config = { local: {}, fleet: {} };
+  frontend.el = (_, className, textContent) => ({ className, textContent, children: [], appendChild(child) { this.children.push(child); } });
+  assert.equal(frontend.generatedTodayValue({ source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 0 }), "0.0 kWh");
+  assert.equal(frontend.generatedTodayValue({ source: "v1r", solarEnergyToday: false }), "— kWh");
+  const dom = frontend.renderSummary({ source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 59200,
+    solarEnergyPartial: true, solarEnergyEstimated: true });
+  assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY (PARTIAL)");
+  assert.equal(dom.children[0].children[1].textContent, "≈ 59.2 kWh");
+});

@@ -261,6 +261,7 @@ module.exports = NodeHelper.create({
       solarEnergyCumulativeWh: tedapiEnergy.solarEnergyCumulativeWh,
       solarEnergyEstimated: tedapiEnergy.solarEnergyEstimated,
       solarEnergySource: tedapiEnergy.solarEnergySource,
+      solarEnergyPartial: Boolean(tedapiEnergy.solarEnergyPartial),
       gridStatus: this.normalizeTedapiGridStatus(payload.gridStatus),
       wallConnectors: [],
       infoMessage,
@@ -326,14 +327,17 @@ module.exports = NodeHelper.create({
     let hasBaseline = false;
     let baseline = null;
     let source = "integrated_power";
+    let estimated = true;
+    let partial = false;
 
     if (hasUsableMeterCounter) {
       source = "meter";
-      baseline = this.tedapiTodayBaseline(readings, local.date);
-      if (baseline) {
-        solarEnergyTodayWh = Math.max(0, currentWh - (Number(baseline.solarEnergyExportedWh) || 0));
-        hasBaseline = true;
-      }
+      const day = this.updateSolarMeterDay(siteHistory, store, siteKey, currentWh, observedAt, local, timeZone);
+      solarEnergyTodayWh = day.totalWh;
+      hasBaseline = true;
+      estimated = day.estimated;
+      partial = day.partial;
+      baseline = { observedAt: day.baselineAt };
     } else {
       const daily = siteHistory.daily && siteHistory.daily.localDate === local.date
         ? siteHistory.daily
@@ -374,7 +378,8 @@ module.exports = NodeHelper.create({
       solarEnergyTodayWh,
       solarPowerW: currentPowerW,
       solarEnergySource: source,
-      solarEnergyEstimated: source !== "meter",
+      solarEnergyEstimated: estimated,
+      solarEnergyPartial: partial,
       aggregates: aggregateMeters
     };
     const existingIndex = readings.findIndex((reading) => reading && reading.hourKey === hourKey);
@@ -414,7 +419,8 @@ module.exports = NodeHelper.create({
       hasBaseline: true,
       solarEnergyTodayWh,
       solarEnergyCumulativeWh: currentWh,
-      solarEnergyEstimated: source !== "meter",
+      solarEnergyEstimated: estimated,
+      solarEnergyPartial: partial,
       solarEnergySource: source,
       baselineObservedAt: baseline ? baseline.observedAt || "" : "",
       baselineHourKey: baseline ? baseline.hourKey || "" : "",
@@ -423,19 +429,59 @@ module.exports = NodeHelper.create({
     };
   },
 
-  tedapiTodayBaseline(readings, todayDate) {
-    const usable = (Array.isArray(readings) ? readings : [])
-      .filter((reading) => reading && Number.isFinite(Number(reading.solarEnergyExportedWh)));
-    const previous = usable
-      .filter((reading) => String(reading.localDate || "") < todayDate)
-      .sort((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt));
-    if (previous.length) {
-      return previous[0];
+  // solar.energy_exported is cumulative Wh. Keep a daily anchor separately from
+  // hourly history so replacing an hourly sample cannot move today's baseline.
+  updateSolarMeterDay(site, store, siteKey, currentWh, now, local, timeZone) {
+    let day = site.meterDay;
+    if (!day || day.localDate !== local.date) {
+      const usable = (site.readings || []).filter(r => r &&
+        Number.isFinite(r.solarEnergyExportedWh) && r.solarEnergyExportedWh > 0 &&
+        r.solarEnergySource === "meter" && Date.parse(r.observedAt) <= now.getTime())
+        .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
+      const today = usable.filter(r => r.localDate === local.date);
+      // A sample close to midnight is a suitable day boundary; an old sample
+      // from a previous afternoon would incorrectly include that day's output.
+      const prior = site.lastMeterSample || usable.filter(r => r.localDate < local.date).pop();
+      const priorLocal = prior ? this.localTimeParts(new Date(prior.observedAt), timeZone) : null;
+      const yesterday = prior && Date.parse(local.date) - Date.parse(prior.localDate) === 86400000;
+      const nearMidnight = yesterday && priorLocal.hour === 23 && priorLocal.minute >= 55;
+      const anchor = nearMidnight ? prior : today[0];
+      const anchorAt = anchor ? anchor.observedAt : now.toISOString();
+      const anchorLocal = this.localTimeParts(new Date(anchorAt), timeZone);
+      day = {
+        localDate: local.date,
+        baselineWh: anchor ? anchor.solarEnergyExportedWh : currentWh,
+        baselineAt: anchorAt,
+        offsetWh: 0,
+        lastWh: anchor ? anchor.solarEnergyExportedWh : currentWh,
+        totalWh: 0,
+        partial: !nearMidnight && !(anchorLocal.hour === 0 && anchorLocal.minute < 5),
+        estimated: false
+      };
+      // Recover a uniquely identified legacy Wi-Fi series during LAN migration.
+      // Its integrated total is only a lower bound: the handover gap is unknown.
+      const legacy = Object.entries(store.sites).filter(([key, value]) => key !== siteKey &&
+        site.siteName && value.siteName === site.siteName && value.timeZone === timeZone &&
+        value.gatewayIP === "192.168.91.1" && value.daily && value.daily.localDate === local.date &&
+        value.lastSample && Date.parse(value.lastSample.observedAt) <= Date.parse(anchorAt));
+      if (day.partial && legacy.length === 1) {
+        day.offsetWh = Math.max(0, Number(legacy[0][1].daily.solarEnergyTodayWh) || 0);
+        day.estimated = day.offsetWh > 0;
+      }
+      site.meterDay = day;
     }
-
-    return usable
-      .filter((reading) => String(reading.localDate || "") === todayDate && Number(reading.localHour) === 0)
-      .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt))[0] || null;
+    if (currentWh < day.lastWh) {
+      // A meter reset must never erase production already observed today.
+      day.offsetWh = day.totalWh;
+      day.baselineWh = currentWh;
+      day.partial = true;
+    }
+    day.totalWh = day.offsetWh + Math.max(0, currentWh - day.baselineWh);
+    day.lastWh = currentWh;
+    site.lastMeterSample = {
+      localDate: local.date, observedAt: now.toISOString(), solarEnergyExportedWh: currentWh
+    };
+    return day;
   },
 
   loadTedapiAggregateHistoryStore(config) {
@@ -523,6 +569,7 @@ module.exports = NodeHelper.create({
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
+      minute: "2-digit",
       hourCycle: "h23"
     });
     formatter.formatToParts(date).forEach((part) => {
@@ -532,7 +579,8 @@ module.exports = NodeHelper.create({
     });
     return {
       date: `${parts.year}-${parts.month}-${parts.day}`,
-      hour: Number(parts.hour) || 0
+      hour: Number(parts.hour) || 0,
+      minute: Number(parts.minute) || 0
     };
   },
 
