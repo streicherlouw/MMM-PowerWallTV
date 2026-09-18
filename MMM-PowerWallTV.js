@@ -360,6 +360,17 @@ Module.register("MMM-PowerWallTV", {
       summary.appendChild(generated);
     }
 
+    if (["v1r", "tedapi"].includes(snapshot.source)) {
+      const reading = snapshot.gridExportToday;
+      const block = this.el("div", "pwtv-summary-generated pwtv-summary-export-today");
+      block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
+        "EXPORTED TODAY" + (reading && reading.partial ? " (PARTIAL)" : "")));
+      const value = reading && Number.isFinite(reading.energyWh)
+        ? `${reading.estimated ? "≈ " : ""}${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
+      block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
+      summary.appendChild(block);
+    }
+
     const exportWindow = Object.assign({ show: true, start: "17:00", end: "21:00" }, this.config.GridExportWindow || {});
     if (exportWindow.show && ["v1r", "tedapi"].includes(snapshot.source)) {
       const reading = snapshot.gridExportWindow;

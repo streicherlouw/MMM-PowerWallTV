@@ -167,9 +167,15 @@ The v1r `solar.energy_exported` value is cumulative Wh. The module subtracts a p
 
 Missing keys, unverified keys, authentication errors or unavailable readings produce a refresh error. With `staleDataOnError: true`, the last good display remains visible. A missing Python package requires installation in `tedapi.python`'s environment. A connection timeout requires checking LAN reachability; changing the address alone cannot enable v1r on an unsupported interface.
 
+## Daily grid export display
+
+`EXPORTED TODAY` appears between `GENERATED TODAY` and the configured export-window reading in v1r/TEDAPI modes. It shows all energy exported to the grid since local midnight in kWh, including both solar and battery exports. It uses `site.energy_exported`; imports are not subtracted and solar production is not substituted.
+
+The daily total is independent of the tariff window and remains visible when `GridExportWindow.show` is false. It uses `tedapi.timezone` (or the host timezone), resets at local midnight, and persists in the existing aggregate-history file across restarts. Existing hourly meter history seeds the first total after upgrading. A saved reading within five minutes before midnight can serve as an approximate baseline (`≈`); a short polling interval across midnight is interpolated. Missing baselines or meter resets are marked `(PARTIAL)`. Missing grid counters show `— kWh`. No new configuration or credentials are required.
+
 ## Grid export window display
 
-The upper-left summary now shows `EXPORTED 5-9PM` below `GENERATED TODAY`, using the same label and value fonts. This is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. The reading uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
+The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, and `EXPORTED 5-9PM` in that order, using the same label and value fonts. This is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. The reading uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
 
 Configure the window at the top level of the module config:
 

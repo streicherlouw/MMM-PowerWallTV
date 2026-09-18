@@ -266,6 +266,7 @@ module.exports = NodeHelper.create({
       solarEnergySource: tedapiEnergy.solarEnergySource,
       solarEnergyPartial: Boolean(tedapiEnergy.solarEnergyPartial),
       gridExportWindow: tedapiEnergy.gridExportWindow || null,
+      gridExportToday: tedapiEnergy.gridExportToday || null,
       gridStatus: this.normalizeTedapiGridStatus(payload.gridStatus),
       wallConnectors: [],
       infoMessage,
@@ -373,6 +374,8 @@ module.exports = NodeHelper.create({
       hasBaseline = true;
     }
 
+    const gridExportToday = GridExportWindow.update(siteHistory, aggregateMeters,
+      { start: "00:00", end: "24:00" }, observedAt, timeZone, "gridExportToday");
     const gridExportWindow = GridExportWindow.update(siteHistory, aggregateMeters,
       config.GridExportWindow, observedAt, timeZone);
 
@@ -424,6 +427,7 @@ module.exports = NodeHelper.create({
 
     return {
       hasBaseline: true,
+      gridExportToday,
       gridExportWindow,
       solarEnergyTodayWh,
       solarEnergyCumulativeWh: currentWh,

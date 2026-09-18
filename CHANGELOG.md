@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-18 — Daily grid export total
+
+- Added `EXPORTED TODAY` between solar generation today and the tariff-window export reading.
+- Count all daily grid exports independently of the tariff window, with persistent state, local-midnight reset, history recovery, and partial/estimated indicators.
+- Added daily-meter tests including midnight rollover, restart recovery, and daylight-saving time.
+
 ## 2026-09-18 — Configurable grid export window
 
 - Added `EXPORTED 5-9PM` below daily solar production, using the same fonts.

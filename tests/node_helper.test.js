@@ -235,22 +235,26 @@ test("export window uses existing summary fonts, follows its label settings and 
   frontend.formatNumber = n => n.toFixed(1);
   frontend.el = (_, className, textContent) => ({ className, textContent, children: [], appendChild(child) { this.children.push(child); } });
   const snapshot = { source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 42000,
+    gridExportToday: { energyWh: 27000, partial: false, estimated: false },
     gridExportWindow: { energyWh: 12500, partial: false, estimated: false } };
   let dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY");
-  assert.equal(dom.children[1].children[0].textContent, "EXPORTED 5-9PM");
-  assert.equal(dom.children[1].children[1].textContent, "12.5 kWh");
+  assert.equal(dom.children[1].children[0].textContent, "EXPORTED TODAY");
+  assert.equal(dom.children[1].children[1].textContent, "27.0 kWh");
   assert.equal(dom.children[1].children[1].className, dom.children[0].children[1].className);
+  assert.equal(dom.children[2].children[0].textContent, "EXPORTED 5-9PM");
+  assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
+  assert.equal(dom.children[2].children[1].className, dom.children[0].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
   snapshot.gridExportWindow.partial = true;
   snapshot.gridExportWindow.estimated = true;
   dom = frontend.renderSummary(snapshot);
-  assert.equal(dom.children[1].children[0].textContent, "EXPORTED 4:30-8:15PM (PARTIAL)");
-  assert.equal(dom.children[1].children[1].textContent, "≈ 12.5 kWh");
+  assert.equal(dom.children[2].children[0].textContent, "EXPORTED 4:30-8:15PM (PARTIAL)");
+  assert.equal(dom.children[2].children[1].textContent, "≈ 12.5 kWh");
   snapshot.gridExportWindow = null;
-  assert.equal(frontend.renderSummary(snapshot).children[1].children[1].textContent, "— kWh");
+  assert.equal(frontend.renderSummary(snapshot).children[2].children[1].textContent, "— kWh");
   frontend.config.GridExportWindow.show = false;
-  assert.equal(frontend.renderSummary(snapshot).children.length, 1);
+  assert.equal(frontend.renderSummary(snapshot).children.length, 2);
   assert.equal(frontend.exportWindowLabel("10:00", "14:00"), "10AM-2PM");
 });
 
@@ -261,6 +265,7 @@ test("export window is persisted with aggregate history and forwarded to display
   });
   assert.equal(result.gridExportWindow.energyWh, 0);
   assert.ok(site.gridExportWindow.sample);
+  assert.equal(site.gridExportToday.sample.counter, 2300000);
   assert.equal(Object.values(store.sites)[0].gridExportWindow.sample.counter, 2300000);
   h.execJsonFile = async () => ({ aggregateMeters: { solar: { energy_exported: 4600000 }, site: { energy_exported: 2300000 } } });
   h.updateTedapiAggregateHistory = () => result;
@@ -268,4 +273,5 @@ test("export window is persisted with aggregate history and forwarded to display
     gatewayIP: "10.0.0.98", gatewayPassword: "test", rsaKeyPath: "test.pem"
   } });
   assert.equal(snapshot.gridExportWindow, result.gridExportWindow);
+  assert.equal(snapshot.gridExportToday, result.gridExportToday);
 });
