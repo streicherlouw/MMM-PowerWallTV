@@ -364,7 +364,7 @@ Module.register("MMM-PowerWallTV", {
     if (exportWindow.show && ["v1r", "tedapi"].includes(snapshot.source)) {
       const reading = snapshot.gridExportWindow;
       const block = this.el("div", "pwtv-summary-generated pwtv-summary-export-window");
-      const label = `GENERATED ${this.exportWindowLabel(exportWindow.start, exportWindow.end)}`;
+      const label = `EXPORTED ${this.exportWindowLabel(exportWindow.start, exportWindow.end)}`;
       block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
         label + (reading && reading.partial ? " (PARTIAL)" : "")));
       const value = reading && Number.isFinite(reading.energyWh)

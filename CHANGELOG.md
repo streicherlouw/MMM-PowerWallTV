@@ -2,7 +2,7 @@
 
 ## 2026-09-18 — Configurable grid export window
 
-- Added `GENERATED 5-9PM` below daily solar production, using the same fonts.
+- Added `EXPORTED 5-9PM` below daily solar production, using the same fonts.
 - Added `GridExportWindow.show`, `start`, and `end` settings with a 17:00–21:00 default.
 - Count grid exports from cumulative site meter readings, retain totals across restarts, and reset at local midnight.
 - Recover saved history, distinguish partial and interpolated totals, and handle missing counters and resets.

@@ -169,7 +169,7 @@ Missing keys, unverified keys, authentication errors or unavailable readings pro
 
 ## Grid export window display
 
-The upper-left summary now shows `GENERATED 5-9PM` below `GENERATED TODAY`, using the same label and value fonts. Despite the short display label, this is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. The reading uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
+The upper-left summary now shows `EXPORTED 5-9PM` below `GENERATED TODAY`, using the same label and value fonts. This is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. The reading uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
 
 Configure the window at the top level of the module config:
 
@@ -181,7 +181,7 @@ GridExportWindow: {
 },
 ```
 
-These are the defaults. Use 24-hour `HH:mm` values; the label follows the configured times (for example, `16:30` to `20:15` displays `GENERATED 4:30-8:15PM`). The end must be later than the start on the same day; `24:00` is allowed as the end. Overnight windows are not supported. Set `show: false` to hide this reading; counting continues so it can be shown again later. `showSummary` must also be true. This reading is available in v1r and Wi-Fi TEDAPI modes with valid grid export counters.
+These are the defaults. Use 24-hour `HH:mm` values; the label follows the configured times (for example, `16:30` to `20:15` displays `EXPORTED 4:30-8:15PM`). The end must be later than the start on the same day; `24:00` is allowed as the end. Overnight windows are not supported. Set `show: false` to hide this reading; counting continues so it can be shown again later. `showSummary` must also be true. This reading is available in v1r and Wi-Fi TEDAPI modes with valid grid export counters.
 
 The window follows `tedapi.timezone`, including daylight saving time, or the host timezone if unset. The value starts at zero each local calendar day, accumulates during the window, and remains visible after the window closes until midnight. Its state is saved with the existing aggregate history, so restarting MagicMirror retains the count. Changing the window recalculates what can be recovered from saved meter history.
 

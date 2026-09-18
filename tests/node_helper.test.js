@@ -238,14 +238,14 @@ test("export window uses existing summary fonts, follows its label settings and 
     gridExportWindow: { energyWh: 12500, partial: false, estimated: false } };
   let dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY");
-  assert.equal(dom.children[1].children[0].textContent, "GENERATED 5-9PM");
+  assert.equal(dom.children[1].children[0].textContent, "EXPORTED 5-9PM");
   assert.equal(dom.children[1].children[1].textContent, "12.5 kWh");
   assert.equal(dom.children[1].children[1].className, dom.children[0].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
   snapshot.gridExportWindow.partial = true;
   snapshot.gridExportWindow.estimated = true;
   dom = frontend.renderSummary(snapshot);
-  assert.equal(dom.children[1].children[0].textContent, "GENERATED 4:30-8:15PM (PARTIAL)");
+  assert.equal(dom.children[1].children[0].textContent, "EXPORTED 4:30-8:15PM (PARTIAL)");
   assert.equal(dom.children[1].children[1].textContent, "≈ 12.5 kWh");
   snapshot.gridExportWindow = null;
   assert.equal(frontend.renderSummary(snapshot).children[1].children[1].textContent, "— kWh");
