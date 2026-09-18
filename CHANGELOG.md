@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-18 — Terminal switch for battery export control
+
+- Added `scripts/battery-export-limit.js on|off` to edit the active flag, back up and validate config, and restart MagicMirror.
+- Added custom config/service options and `--no-restart`, with JavaScript parsing that preserves unrelated config and comments.
+- Documented local and SSH usage and added regression tests for safe edits and restart failures.
+
 ## 2026-09-12 — Restore daily solar production
 
 - Restore the upper-left daily generation counter using v1r `solar.energy_exported` counter deltas.

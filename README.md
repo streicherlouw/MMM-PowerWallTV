@@ -193,6 +193,37 @@ The site-wide `never` rule prohibits solar export too, so this feature preserves
 
 Set `active: false` to stop automatic changes. This leaves the current gateway export permission unchanged. Both thresholds must be numbers with `0 <= lowerThreshold < upperThreshold <= 100`. Active control requires option 5 and a registered RSA key; it is not supported in demo, local JSON, Wi-Fi TEDAPI or Fleet mode.
 
+### Switch automatic export control on or off from the terminal
+
+Run on the Raspberry Pi as the same user who runs MagicMirror. Install the script's parser dependency once after updating the module:
+
+```bash
+cd ~/MagicMirror/modules/MMM-PowerWallTV
+npm install
+node scripts/battery-export-limit.js on
+node scripts/battery-export-limit.js off
+```
+
+Run **one** of the last two commands for the desired setting. The script modifies only this module's `BatteryExportToGridLimit.active` boolean in `MagicMirror/config/config.js`, preserves the thresholds and other settings, validates JavaScript syntax, saves a private timestamped backup alongside the config, and atomically replaces the file. It then runs `pm2 restart MagicMirror`. The existing `BatteryExportToGridLimit` block must be present with a literal `active: true` or `active: false`. Comments and quoted property names are supported; missing or multiple module entries, dynamic values, spread properties and computed keys are rejected without modifying the file. The config is parsed, never executed by this script.
+
+For a custom config path, PM2 service name, or another service manager:
+
+```bash
+node scripts/battery-export-limit.js on --config /path/to/config.js --pm2-name my-mirror
+node scripts/battery-export-limit.js off --no-restart
+```
+
+With `--no-restart`, restart MagicMirror yourself to apply the saved setting. If a PM2 restart fails after saving, the script reports this explicitly; the saved setting remains in the config. Run `node scripts/battery-export-limit.js --help` for usage.
+
+From another computer, after installing the script and dependency on the Pi:
+
+```bash
+ssh pi@homescreen.local 'node ~/MagicMirror/modules/MMM-PowerWallTV/scripts/battery-export-limit.js on'
+ssh pi@homescreen.local 'node ~/MagicMirror/modules/MMM-PowerWallTV/scripts/battery-export-limit.js off'
+```
+
+Turning the feature **off** stops automatic control after reload; it does **not** change the Powerwall's current export permission. Turning it **on** resumes the configured charge-threshold policy on the next successful refresh.
+
 The snapshot contains `gridExportMode` plus `batteryExportToGridLimit` with the charge percentage, thresholds, setting before/after, action (`inactive`, `unchanged`, `enabled`, `disabled`, `blocked` or `error`) and any error. The decision uses the latest successful polling sample, so a stopped module or unavailable gateway cannot enforce thresholds until polling resumes.
 
 The standalone helper is read-only unless `--battery-export-limit` is explicitly passed. The corresponding threshold flags are `--export-lower-threshold 70 --export-upper-threshold 90`.
