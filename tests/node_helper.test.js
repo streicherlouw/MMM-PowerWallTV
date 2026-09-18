@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const directory = path.resolve(__dirname, "..");
 function helper() {
   const sandbox = {
-    require: (name) => name === "node_helper" ? { create: (definition) => definition } : require(name),
+    require: (name) => name === "node_helper" ? { create: (definition) => definition } : require(name.startsWith("./") ? path.join(directory, name) : name),
     module: { exports: {} }, __dirname: directory, process, Buffer, setTimeout, clearTimeout, console
   };
   vm.runInNewContext(fs.readFileSync(path.join(directory, "node_helper.js"), "utf8"), sandbox);
@@ -224,4 +224,48 @@ test("daily summary renders zero, partial estimates and unavailable v1r readings
     solarEnergyPartial: true, solarEnergyEstimated: true });
   assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY (PARTIAL)");
   assert.equal(dom.children[0].children[1].textContent, "≈ 59.2 kWh");
+});
+
+test("export window uses existing summary fonts, follows its label settings and can be hidden", () => {
+  let frontend;
+  vm.runInNewContext(fs.readFileSync(path.join(directory, "MMM-PowerWallTV.js"), "utf8"), {
+    Module: { register: (_, definition) => { frontend = definition; } }
+  });
+  frontend.config = { local: {}, fleet: {}, GridExportWindow: { show: true } };
+  frontend.formatNumber = n => n.toFixed(1);
+  frontend.el = (_, className, textContent) => ({ className, textContent, children: [], appendChild(child) { this.children.push(child); } });
+  const snapshot = { source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 42000,
+    gridExportWindow: { energyWh: 12500, partial: false, estimated: false } };
+  let dom = frontend.renderSummary(snapshot);
+  assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY");
+  assert.equal(dom.children[1].children[0].textContent, "GENERATED 5-9PM");
+  assert.equal(dom.children[1].children[1].textContent, "12.5 kWh");
+  assert.equal(dom.children[1].children[1].className, dom.children[0].children[1].className);
+  frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
+  snapshot.gridExportWindow.partial = true;
+  snapshot.gridExportWindow.estimated = true;
+  dom = frontend.renderSummary(snapshot);
+  assert.equal(dom.children[1].children[0].textContent, "GENERATED 4:30-8:15PM (PARTIAL)");
+  assert.equal(dom.children[1].children[1].textContent, "≈ 12.5 kWh");
+  snapshot.gridExportWindow = null;
+  assert.equal(frontend.renderSummary(snapshot).children[1].children[1].textContent, "— kWh");
+  frontend.config.GridExportWindow.show = false;
+  assert.equal(frontend.renderSummary(snapshot).children.length, 1);
+  assert.equal(frontend.exportWindowLabel("10:00", "14:00"), "10AM-2PM");
+});
+
+test("export window is persisted with aggregate history and forwarded to display snapshots", async () => {
+  const { h, config, store, site } = energyHarness();
+  const result = h.updateTedapiAggregateHistory(config, {
+    solar: { energy_exported: 4600000 }, site: { energy_exported: 2300000 }
+  });
+  assert.equal(result.gridExportWindow.energyWh, 0);
+  assert.ok(site.gridExportWindow.sample);
+  assert.equal(Object.values(store.sites)[0].gridExportWindow.sample.counter, 2300000);
+  h.execJsonFile = async () => ({ aggregateMeters: { solar: { energy_exported: 4600000 }, site: { energy_exported: 2300000 } } });
+  h.updateTedapiAggregateHistory = () => result;
+  const snapshot = await h.fetchSnapshot("display", { mode: "v1r", tedapi: {
+    gatewayIP: "10.0.0.98", gatewayPassword: "test", rsaKeyPath: "test.pem"
+  } });
+  assert.equal(snapshot.gridExportWindow, result.gridExportWindow);
 });

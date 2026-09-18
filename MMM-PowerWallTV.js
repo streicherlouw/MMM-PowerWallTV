@@ -20,6 +20,11 @@ Module.register("MMM-PowerWallTV", {
     imageHorizontalOffset: "-2%",
     imageVerticalOffset: "3%",
     showSummary: true,
+    GridExportWindow: {
+      show: true,
+      start: "17:00",
+      end: "21:00"
+    },
     showGridCarbon: true,
     showVehicle: true,
     showHistory: false,
@@ -353,6 +358,19 @@ Module.register("MMM-PowerWallTV", {
         snapshot.solarEnergyPartial ? "GENERATED TODAY (PARTIAL)" : "GENERATED TODAY"));
       generated.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", generatedToday));
       summary.appendChild(generated);
+    }
+
+    const exportWindow = Object.assign({ show: true, start: "17:00", end: "21:00" }, this.config.GridExportWindow || {});
+    if (exportWindow.show && ["v1r", "tedapi"].includes(snapshot.source)) {
+      const reading = snapshot.gridExportWindow;
+      const block = this.el("div", "pwtv-summary-generated pwtv-summary-export-window");
+      const label = `GENERATED ${this.exportWindowLabel(exportWindow.start, exportWindow.end)}`;
+      block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
+        label + (reading && reading.partial ? " (PARTIAL)" : "")));
+      const value = reading && Number.isFinite(reading.energyWh)
+        ? `${reading.estimated ? "≈ " : ""}${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
+      block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
+      summary.appendChild(block);
     }
 
     if (!snapshot.solarEnergyToday && Number.isFinite(snapshot.solarEnergyExportedWh) && snapshot.solarEnergyExportedWh > 0) {
@@ -838,6 +856,16 @@ Module.register("MMM-PowerWallTV", {
     const count = Number(snapshot.batteryCount) || 0;
     const capacityKwh = Math.round(count * 13.5);
     return capacityKwh > 0 ? `POWERWALL ${capacityKwh.toFixed(0)} kWh` : "POWERWALL";
+  },
+
+  exportWindowLabel(start, end) {
+    const format = value => {
+      const [hour, minute] = value.split(":").map(Number);
+      return { time: `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, "0")}` : ""}`,
+        suffix: hour % 24 < 12 ? "AM" : "PM" };
+    };
+    const from = format(start), to = format(end);
+    return `${from.time}${from.suffix === to.suffix ? "" : from.suffix}-${to.time}${to.suffix}`;
   },
 
   generatedTodayValue(snapshot) {

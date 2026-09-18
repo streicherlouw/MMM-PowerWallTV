@@ -167,6 +167,28 @@ The v1r `solar.energy_exported` value is cumulative Wh. The module subtracts a p
 
 Missing keys, unverified keys, authentication errors or unavailable readings produce a refresh error. With `staleDataOnError: true`, the last good display remains visible. A missing Python package requires installation in `tedapi.python`'s environment. A connection timeout requires checking LAN reachability; changing the address alone cannot enable v1r on an unsupported interface.
 
+## Grid export window display
+
+The upper-left summary now shows `GENERATED 5-9PM` below `GENERATED TODAY`, using the same label and value fonts. Despite the short display label, this is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. The reading uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
+
+Configure the window at the top level of the module config:
+
+```js
+GridExportWindow: {
+  show: true,
+  start: "17:00",
+  end: "21:00"
+},
+```
+
+These are the defaults. Use 24-hour `HH:mm` values; the label follows the configured times (for example, `16:30` to `20:15` displays `GENERATED 4:30-8:15PM`). The end must be later than the start on the same day; `24:00` is allowed as the end. Overnight windows are not supported. Set `show: false` to hide this reading; counting continues so it can be shown again later. `showSummary` must also be true. This reading is available in v1r and Wi-Fi TEDAPI modes with valid grid export counters.
+
+The window follows `tedapi.timezone`, including daylight saving time, or the host timezone if unset. The value starts at zero each local calendar day, accumulates during the window, and remains visible after the window closes until midnight. Its state is saved with the existing aggregate history, so restarting MagicMirror retains the count. Changing the window recalculates what can be recovered from saved meter history.
+
+Polling rarely lands exactly on a boundary. A boundary crossed within five minutes is interpolated and shown with `≈` if energy is apportioned. Longer gaps across a boundary, counter resets, or starting without the necessary history show `(PARTIAL)`; unassignable energy is excluded. Gaps wholly inside the window are recovered from cumulative meter differences. Missing or invalid grid counters display `— kWh` and do not count imports or substitute solar power. Historical hourly readings can recover some of the first day's total, but cannot reconstruct missing boundary readings exactly.
+
+Update the module files and restart MagicMirror to enable the default display. No additional Powerwall credentials or RSA registration are required. This is a read-only display feature and does not change `BatteryExportToGridLimit` or any Powerwall setting.
+
 ## BatteryExportToGridLimit
 
 Option 5 can automatically allow or disable **battery** export according to state of charge. The feature is inactive by default. Add this top-level block inside the module's `config` to activate it:
@@ -372,6 +394,9 @@ Fleet mode also fetches `calendar_history?kind=energy&period=day` to show the "E
 | `gridHysteresisWatts` | `30` | Import/export deadband in watts; readings inside the band keep the previous grid direction to avoid flicker |
 | `gridAnimationThresholdWatts` | `30` | Minimum raw grid import/export watts required before grid flow animations are shown |
 | `staleDataOnError` | `true` | Keeps the last good snapshot visible when a refresh fails |
+| `GridExportWindow.show` | `true` | Display grid export energy for the configured daily window |
+| `GridExportWindow.start` | `"17:00"` | Start time in the module's local timezone, 24-hour `HH:mm` |
+| `GridExportWindow.end` | `"21:00"` | Same-day end time, exclusive; `24:00` is allowed |
 | `BatteryExportToGridLimit.active` | `false` | Enable automatic battery export permission control in option 5 |
 | `BatteryExportToGridLimit.lowerThreshold` | `70` | Disable battery export below this Tesla-app state-of-charge percentage |
 | `BatteryExportToGridLimit.upperThreshold` | `90` | Re-enable battery export at or above this percentage |

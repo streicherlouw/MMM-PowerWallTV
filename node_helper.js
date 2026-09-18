@@ -1,4 +1,5 @@
 const NodeHelper = require("node_helper");
+const GridExportWindow = require("./lib/grid-export-window");
 const { execFile } = require("child_process");
 const fs = require("fs");
 const http = require("http");
@@ -75,6 +76,7 @@ module.exports = NodeHelper.create({
   },
 
   normalizeConfig(config) {
+    const gridExportWindow = GridExportWindow.normalize(config.GridExportWindow);
     const BatteryExportToGridLimit = Object.assign({
       active: false,
       lowerThreshold: 70,
@@ -153,6 +155,7 @@ module.exports = NodeHelper.create({
     return {
       mode,
       BatteryExportToGridLimit,
+      GridExportWindow: gridExportWindow,
       local,
       tedapi,
       fleet,
@@ -164,7 +167,7 @@ module.exports = NodeHelper.create({
   async fetchTedapiSnapshot(config) {
     // Multiple browser clients can request the same snapshot together. Share
     // the in-flight read/control cycle so it cannot issue duplicate writes.
-    const key = JSON.stringify([config.tedapi, config.BatteryExportToGridLimit, config.mode]);
+    const key = JSON.stringify([config.tedapi, config.BatteryExportToGridLimit, config.GridExportWindow, config.mode]);
     if (this.tedapiRequests.has(key)) {
       return this.tedapiRequests.get(key);
     }
@@ -262,6 +265,7 @@ module.exports = NodeHelper.create({
       solarEnergyEstimated: tedapiEnergy.solarEnergyEstimated,
       solarEnergySource: tedapiEnergy.solarEnergySource,
       solarEnergyPartial: Boolean(tedapiEnergy.solarEnergyPartial),
+      gridExportWindow: tedapiEnergy.gridExportWindow || null,
       gridStatus: this.normalizeTedapiGridStatus(payload.gridStatus),
       wallConnectors: [],
       infoMessage,
@@ -369,6 +373,9 @@ module.exports = NodeHelper.create({
       hasBaseline = true;
     }
 
+    const gridExportWindow = GridExportWindow.update(siteHistory, aggregateMeters,
+      config.GridExportWindow, observedAt, timeZone);
+
     const nextReading = {
       hourKey,
       localDate: local.date,
@@ -417,6 +424,7 @@ module.exports = NodeHelper.create({
 
     return {
       hasBaseline: true,
+      gridExportWindow,
       solarEnergyTodayWh,
       solarEnergyCumulativeWh: currentWh,
       solarEnergyEstimated: estimated,
