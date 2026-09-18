@@ -4,9 +4,23 @@ A MagicMirror module inspired by [sighmon/Powerwall-TV](https://github.com/sighm
 
 The module is local-first: the Node helper fetches data from your MagicMirror host and sends a display snapshot to the browser module. For Powerwall 3, the recommended setup is **option 5: RSA-authenticated v1r LAN access through pyPowerwall**. Existing Wi-Fi TEDAPI, local Gateway and Fleet API configurations remain supported.
 
+## Energy readings and export control
+
+In v1r/TEDAPI mode, the upper-left summary displays these readings in matching fonts:
+
+| Reading | What it measures |
+| --- | --- |
+| `GENERATED TODAY` | Solar energy produced since local midnight |
+| `EXPORTED TODAY` | Total energy sent to the grid since local midnight, from solar and batteries |
+| `EXPORTED 5-9PM` | Energy sent to the grid during the configured daily window; the label follows its start/end times |
+
+All readings use kWh. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides only the window reading.
+
+The display is separate from optional [BatteryExportToGridLimit](#batteryexporttogridlimit) control, which disables battery export below a lower charge threshold and re-enables it at an upper threshold. The [terminal script](#switch-automatic-export-control-on-or-off-from-the-terminal) switches that automation on or off by updating and reloading the MagicMirror config. Details and configuration are below; see [CHANGELOG.md](CHANGELOG.md) for release history.
+
 ## Install
 
-Start with a working MagicMirror installation and its supported Node.js version. This module's test runner requires Node.js 18+ and Python 3. No additional npm packages are needed. On Raspberry Pi OS, install `python3-venv` if `python3 -m venv` is unavailable:
+Start with a working MagicMirror installation and its supported Node.js version. This module's test runner requires Node.js 18+ and Python 3. Run `npm ci` to install the locked npm dependencies, including the Acorn parser used by the terminal configuration script. On Raspberry Pi OS, install `python3-venv` if `python3 -m venv` is unavailable:
 
 ```bash
 sudo apt install python3-venv
@@ -18,10 +32,11 @@ Clone or copy this folder into your MagicMirror `modules` directory:
 cd ~/MagicMirror/modules
 git clone https://github.com/streicherlouw/MMM-PowerWallTV.git
 cd MMM-PowerWallTV
+npm ci
 npm test
 ```
 
-`npm test` runs the JavaScript syntax checks and 28 automated tests without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
+`npm test` runs the JavaScript syntax checks and 58 automated tests (38 JavaScript and 20 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
 
 ## Powerwall 3 LAN Config — Option 5 (Recommended)
 
@@ -82,6 +97,12 @@ These files are Git-ignored. Alternatively, set `PWTV_TEDAPI_GATEWAY_PASSWORD` i
   position: "fullscreen_above",
   config: {
     mode: "v1r",
+    showSummary: true,
+    GridExportWindow: {
+      show: true,
+      start: "17:00",
+      end: "21:00"
+    },
     BatteryExportToGridLimit: {
       active: false,
       lowerThreshold: 70,
@@ -145,12 +166,18 @@ install -d -m 700 "$pwtv_backup"
 install -m 600 ~/MagicMirror/config/config.js "$pwtv_backup/config.js"
 git rev-parse HEAD > "$pwtv_backup/module-commit.txt"
 git status --short
+if [ -f "$HOME/.cache/MMM-PowerWallTV/tedapi-aggregates.json" ]; then
+  install -m 600 "$HOME/.cache/MMM-PowerWallTV/tedapi-aggregates.json" "$pwtv_backup/tedapi-aggregates.json"
+fi
 ```
+
+The history backup above uses the default path; substitute `tedapi.aggregateHistoryPath` if you configured another location. It contains the persisted solar, daily grid-export and tariff-window totals.
 
 If Git reports local source changes, preserve or commit them before pulling; do not discard a deployed customization with a hard reset. For a clean checkout on `main`:
 
 ```bash
 git pull --ff-only origin main
+npm ci
 .venv/bin/python -m pip install -r requirements.txt
 npm test
 ```
@@ -175,7 +202,7 @@ The daily total is independent of the tariff window and remains visible when `Gr
 
 ## Grid export window display
 
-The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, and `EXPORTED 5-9PM` in that order, using the same label and value fonts. This is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. The reading uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
+The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, and `EXPORTED 5-9PM` in that order, using the same label and value fonts. The window reading is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. It uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
 
 Configure the window at the top level of the module config:
 
@@ -409,7 +436,7 @@ Fleet mode also fetches `calendar_history?kind=energy&period=day` to show the "E
 | `imageScale` | `1.2` | Zooms the home scene artwork and aligned overlays |
 | `imageHorizontalOffset` | `"-2%"` | Moves the zoomed home scene left/right |
 | `imageVerticalOffset` | `"3%"` | Moves the zoomed home scene up/down |
-| `showSummary` | `true` | Shows site name, generated energy, and status message |
+| `showSummary` | `true` | Shows site name, daily generation, daily grid exports, the configured export window, and status messages |
 | `showGridCarbon` | `true` | Shows renewables percentage and carbon intensity when electricityMaps is configured |
 | `showVehicle` | `true` | Shows Wall Connector vehicle label |
 | `showHistory` | `false` | Adds a compact live sparkline overlay |

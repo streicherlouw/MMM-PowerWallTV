@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-18 — Documentation and installation refresh
+
+- Consolidated the three energy readings, visibility settings, timezone behavior and export automation in the README.
+- Updated the complete v1r configuration example with the export-window settings.
+- Added `npm ci` to install and upgrade instructions, documented history backups, and updated validation instructions to reflect all 58 tests.
+
 ## 2026-09-18 — Daily grid export total
 
 - Added `EXPORTED TODAY` between solar generation today and the tariff-window export reading.
