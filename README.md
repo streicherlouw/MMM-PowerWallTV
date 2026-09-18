@@ -13,8 +13,9 @@ In v1r/TEDAPI mode, the upper-left summary displays these readings in matching f
 | `GENERATED TODAY` | Solar energy produced since local midnight |
 | `EXPORTED TODAY` | Total energy sent to the grid since local midnight, from solar and batteries |
 | `EXPORTED 5-9PM` | Energy sent to the grid during the configured daily window; the label follows its start/end times |
+| `FROM BATTERY (EST.)` | Estimated percentage of the window's exported energy supplied by discharging batteries |
 
-All readings use kWh. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides only the window reading.
+Energy readings use kWh; the battery contribution uses %. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides only the window reading.
 
 The display is separate from optional [BatteryExportToGridLimit](#batteryexporttogridlimit) control, which disables battery export below a lower charge threshold and re-enables it at an upper threshold. The [terminal script](#switch-automatic-export-control-on-or-off-from-the-terminal) switches that automation on or off by updating and reloading the MagicMirror config. Details and configuration are below; see [CHANGELOG.md](CHANGELOG.md) for release history.
 
@@ -36,7 +37,7 @@ npm ci
 npm test
 ```
 
-`npm test` runs the JavaScript syntax checks and 58 automated tests (38 JavaScript and 20 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
+`npm test` runs the JavaScript syntax checks and 63 automated tests (43 JavaScript and 20 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
 
 ## Powerwall 3 LAN Config — Option 5 (Recommended)
 
@@ -202,7 +203,7 @@ The daily total is independent of the tariff window and remains visible when `Gr
 
 ## Grid export window display
 
-The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, and `EXPORTED 5-9PM` in that order, using the same label and value fonts. The window reading is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. It uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
+The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, `EXPORTED 5-9PM`, and `FROM BATTERY (EST.)` in that order, using the same label and value fonts with extra spacing between readings. The window reading is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. It uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
 
 Configure the window at the top level of the module config:
 
@@ -221,6 +222,16 @@ The window follows `tedapi.timezone`, including daylight saving time, or the hos
 Polling rarely lands exactly on a boundary. A boundary crossed within five minutes is interpolated and shown with `≈` if energy is apportioned. Longer gaps across a boundary, counter resets, or starting without the necessary history show `(PARTIAL)`; unassignable energy is excluded. Gaps wholly inside the window are recovered from cumulative meter differences. Missing or invalid grid counters display `— kWh` and do not count imports or substitute solar power. Historical hourly readings can recover some of the first day's total, but cannot reconstruct missing boundary readings exactly.
 
 Update the module files and restart MagicMirror to enable the default display. No additional Powerwall credentials or RSA registration are required. This is a read-only display feature and does not change `BatteryExportToGridLimit` or any Powerwall setting.
+
+### Battery contribution to window exports
+
+`FROM BATTERY (EST.)` below the export-window total shows an **estimated percentage of exported energy** supplied by the battery during that same configured window. It is not battery state of charge. It follows `GridExportWindow.start`/`end` and is hidden together with the window when `GridExportWindow.show` is false.
+
+The grid meter cannot identify the origin of exported energy. The estimate allocates exports proportionally to concurrent solar generation and positive battery discharge: `battery discharge / (solar generation + battery discharge)`. This assumes solar and batteries supply the home and grid in the same proportions. For example, 3 kW solar plus 1 kW battery discharge attributes 25% of concurrent exports to the battery. Charging contributes zero. This is an allocation estimate, not a separately metered battery-to-grid measurement.
+
+The module averages sampled source fractions over each short polling interval, clips intervals at the configured window boundaries, and weights the fractions by grid-exported Wh. It persists estimated battery-export Wh alongside total exported Wh across restarts; the displayed percentage is their ratio, never an unweighted average of instantaneous percentages. Values are bounded to 0–100% and marked `≈`.
+
+Before any export, the reading is `— %` because there is no energy to divide by. Missing power data, gaps longer than five minutes, or older saved exports without attribution leave the percentage unavailable and mark it `(PARTIAL)` rather than treating unknown exports as solar-only. The kWh total remains available. Historical hourly readings cannot reconstruct battery contribution reliably; normal attribution starts with fresh polling samples. At local midnight, the next day's counters start over. This display does not change the battery export-control policy.
 
 ## BatteryExportToGridLimit
 

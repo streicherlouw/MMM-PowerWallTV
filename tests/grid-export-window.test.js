@@ -159,3 +159,72 @@ test("daily export includes energy during the repeated daylight-saving hour", ()
   assert.equal(result.energyWh, 1500);
   assert.equal(result.partial, false);
 });
+
+function attributedTracker() {
+  let site = {};
+  return (counter, at, solar, battery, grid = -1000) => {
+    const result = update(site, { site: { energy_exported: counter, instant_power: grid },
+      solar: { instant_power: solar }, battery: { instant_power: battery } }, settings, new Date(at), zone);
+    site = JSON.parse(JSON.stringify(site));
+    return result;
+  };
+}
+
+test("battery share estimates solar-only, battery-only, mixed and charging exports", () => {
+  for (const [solar, battery, expected] of [[4000, 0, 0], [0, 4000, 100], [3000, 1000, 25], [4000, -1000, 0]]) {
+    const read = attributedTracker();
+    assert.equal(read(1000, "2026-09-18T17:00:00+10:00", solar, battery).batteryPercent, null);
+    const result = read(1100, "2026-09-18T17:01:00+10:00", solar, battery);
+    assert.equal(result.batteryPercent, expected);
+    assert.equal(result.batterySharePartial, false);
+  }
+});
+
+test("battery percentage weights exported energy and survives persisted state", () => {
+  const read = attributedTracker();
+  read(1000, "2026-09-18T17:00:00+10:00", 1000, 0);
+  read(1100, "2026-09-18T17:01:00+10:00", 1000, 0); // 100 Wh solar
+  read(1100, "2026-09-18T17:02:00+10:00", 0, 1000); // zero-energy transition
+  const result = read(1400, "2026-09-18T17:03:00+10:00", 0, 1000); // 300 Wh battery
+  assert.equal(result.energyWh, 400);
+  assert.equal(result.batteryPercent, 75);
+});
+
+test("battery share clips at window boundaries and freezes after the window", () => {
+  const read = attributedTracker();
+  read(1000, "2026-09-18T16:59:50+10:00", 1000, 0);
+  const first = read(1020, "2026-09-18T17:00:10+10:00", 0, 1000);
+  assert.equal(first.energyWh, 10);
+  assert.equal(first.batteryPercent, 75); // fraction rises 50% -> 100% inside window
+  read(1020, "2026-09-18T20:59:50+10:00", 0, 1000);
+  const last = read(1040, "2026-09-18T21:00:10+10:00", 0, 1000);
+  assert.equal(last.energyWh, 20);
+  assert.equal(last.batteryPercent, 87.5);
+  assert.equal(read(1200, "2026-09-18T22:00:00+10:00", 1000, 0).batteryPercent, 87.5);
+  assert.equal(read(1200, "2026-09-19T00:00:00+10:00", 0, 1000).batteryPercent, null);
+});
+
+test("missing flows or long gaps keep exports but do not fabricate battery attribution", () => {
+  for (const [minutes, solar] of [[1, undefined], [10, 0]]) {
+    const read = attributedTracker();
+    read(1000, "2026-09-18T17:00:00+10:00", 0, 1000);
+    const result = read(1100, `2026-09-18T17:${String(minutes).padStart(2, "0")}:00+10:00`, solar, 1000);
+    assert.equal(result.energyWh, 100);
+    assert.equal(result.batteryPercent, null);
+    assert.equal(result.batterySharePartial, true);
+  }
+});
+
+test("upgrading existing totals cannot claim that later battery share covers the whole window", () => {
+  const site = { gridExportWindow: {
+    signature: "17:00|21:00|Australia/Melbourne", date: "2026-09-18", totalWh: 500,
+    partial: false, estimated: false, sample: { at: Date.parse("2026-09-18T18:00:00+10:00"),
+      counter: 1500, date: "2026-09-18", seconds: 64800 }
+  } };
+  const result = update(site, { site: { energy_exported: 1600, instant_power: -1000 },
+    solar: { instant_power: 0 }, battery: { instant_power: 1000 } }, settings,
+    new Date("2026-09-18T18:01:00+10:00"), zone);
+  assert.equal(result.energyWh, 600);
+  assert.equal(result.batteryPercent, null);
+  assert.equal(result.batterySharePartial, true);
+});

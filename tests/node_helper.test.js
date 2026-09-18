@@ -236,7 +236,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   frontend.el = (_, className, textContent) => ({ className, textContent, children: [], appendChild(child) { this.children.push(child); } });
   const snapshot = { source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 42000,
     gridExportToday: { energyWh: 27000, partial: false, estimated: false },
-    gridExportWindow: { energyWh: 12500, partial: false, estimated: false } };
+    gridExportWindow: { energyWh: 12500, partial: false, estimated: false, batteryPercent: 37.5 } };
   let dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY");
   assert.equal(dom.children[1].children[0].textContent, "EXPORTED TODAY");
@@ -245,12 +245,20 @@ test("export window uses existing summary fonts, follows its label settings and 
   assert.equal(dom.children[2].children[0].textContent, "EXPORTED 5-9PM");
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   assert.equal(dom.children[2].children[1].className, dom.children[0].children[1].className);
+  assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY (EST.)");
+  assert.equal(dom.children[3].children[1].textContent, "≈ 37.5%");
+  assert.equal(dom.children[3].children[1].className, dom.children[2].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
   snapshot.gridExportWindow.partial = true;
   snapshot.gridExportWindow.estimated = true;
   dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children[2].children[0].textContent, "EXPORTED 4:30-8:15PM (PARTIAL)");
   assert.equal(dom.children[2].children[1].textContent, "≈ 12.5 kWh");
+  snapshot.gridExportWindow.batterySharePartial = true;
+  snapshot.gridExportWindow.batteryPercent = null;
+  dom = frontend.renderSummary(snapshot);
+  assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY (EST.) (PARTIAL)");
+  assert.equal(dom.children[3].children[1].textContent, "— %");
   snapshot.gridExportWindow = null;
   assert.equal(frontend.renderSummary(snapshot).children[2].children[1].textContent, "— kWh");
   frontend.config.GridExportWindow.show = false;

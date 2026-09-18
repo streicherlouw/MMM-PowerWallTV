@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-18 — Battery share of export-window energy
+
+- Added spacing between energy readings and `FROM BATTERY (EST.)` below the configured export window.
+- Estimate the battery contribution by weighting sampled supply fractions with grid-exported energy, retaining state across restarts.
+- Mark unavailable/incomplete attribution explicitly; documented the allocation assumption and preserved existing export control.
+- Added regression coverage for mixed generation, charging, energy weighting, boundaries, gaps and upgrades; all 63 tests pass.
+
 ## 2026-09-18 — Documentation and installation refresh
 
 - Consolidated the three energy readings, visibility settings, timezone behavior and export automation in the README.

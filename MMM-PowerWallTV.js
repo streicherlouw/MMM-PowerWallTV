@@ -382,6 +382,13 @@ Module.register("MMM-PowerWallTV", {
         ? `${reading.estimated ? "≈ " : ""}${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
       block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
       summary.appendChild(block);
+      const battery = this.el("div", "pwtv-summary-generated pwtv-summary-battery-share");
+      battery.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
+        "FROM BATTERY (EST.)" + (reading && reading.batterySharePartial ? " (PARTIAL)" : "")));
+      const percent = reading && Number.isFinite(reading.batteryPercent)
+        ? `≈ ${this.formatNumber(reading.batteryPercent)}%` : "— %";
+      battery.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", percent));
+      summary.appendChild(battery);
     }
 
     if (!snapshot.solarEnergyToday && Number.isFinite(snapshot.solarEnergyExportedWh) && snapshot.solarEnergyExportedWh > 0) {
