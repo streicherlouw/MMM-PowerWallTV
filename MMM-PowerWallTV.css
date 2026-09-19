@@ -167,6 +167,7 @@
   margin-top: 0.54cqw;
 }
 
+.pwtv-summary-site + .pwtv-summary-generated,
 .pwtv-summary-generated + .pwtv-summary-generated {
   margin-top: 16px;
   margin-top: 1.5cqw;
