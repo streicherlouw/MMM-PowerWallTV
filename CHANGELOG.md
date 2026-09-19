@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-19 — OS-managed screen orientation
+
+- Document Raspberry Pi OS ownership of screen orientation and consistent desktop/login-screen profiles.
+- Link the companion MMM-PIR-Sensor fix that removes rotation on monitor wake and MagicMirror startup.
+- Document the matching space between the site name and daily generation, already applied to the display.
+
 ## 2026-09-19 — Battery-share label and display hours
 
 - Renamed the heading to `FROM BATTERY`, retaining the estimated-percentage indicator.

@@ -514,6 +514,14 @@ config: {
 }
 ```
 
+## Screen orientation and motion-sensor integration
+
+MMM-PowerWallTV does not control screen rotation. Configure orientation in Raspberry Pi OS display settings so the desktop and MagicMirror use the same orientation.
+
+If the display rotates when MagicMirror starts or wakes, check other modules that control monitor power. The HomeScreen deployment previously had a `waylandTransform: "270"` override in MMM-PIR-Sensor. The [updated MMM-PIR-Sensor fork](https://github.com/streicherlouw/MMM-PIR-Sensor) removes that override and uses `wlr-randr` only to turn the output on or off. Remove obsolete `waylandTransform` configuration entries when upgrading that module.
+
+On the tested Raspberry Pi OS labwc setup, keep the desktop profile (`~/.config/kanshi/config`) and login-screen profile (`/etc/xdg/labwc-greeter/config.kanshi`) consistent. HomeScreen uses the absolute transform `90`, a 180-degree turn from its former `270` orientation; other mountings may need a different value. See the PIR fork's installation instructions for its Wayland and GPIO requirements. After changing orientation, restart MagicMirror and check a motion-triggered wake to verify the OS setting is retained.
+
 ## Notes
 
 Powerwall Gateway certificates are usually self-signed, so `rejectUnauthorized: false` is the practical default for local mode. Keep your MagicMirror `config.js` and `.pwtv-fleet-tokens.json` private because they contain Gateway credentials or Fleet API tokens.
