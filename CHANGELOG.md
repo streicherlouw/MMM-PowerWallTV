@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-19 — Battery-share label and display hours
+
+- Renamed the heading to `FROM BATTERY`, retaining the estimated-percentage indicator.
+- Show the heading and percentage from the configured premium-window start until local midnight, using the server-provided site timezone.
+- Keep the completed share visible after the export window ends; hide it before the next window starts.
+
 ## 2026-09-18 — Battery share of export-window energy
 
 - Added spacing between energy readings and `FROM BATTERY (EST.)` below the configured export window.

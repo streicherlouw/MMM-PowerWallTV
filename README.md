@@ -13,7 +13,7 @@ In v1r/TEDAPI mode, the upper-left summary displays these readings in matching f
 | `GENERATED TODAY` | Solar energy produced since local midnight |
 | `EXPORTED TODAY` | Total energy sent to the grid since local midnight, from solar and batteries |
 | `EXPORTED 5-9PM` | Energy sent to the grid during the configured daily window; the label follows its start/end times |
-| `FROM BATTERY (EST.)` | Estimated percentage of the window's exported energy supplied by discharging batteries |
+| `FROM BATTERY` | Estimated percentage of the window's exported energy supplied by discharging batteries |
 
 Energy readings use kWh; the battery contribution uses %. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides only the window reading.
 
@@ -37,7 +37,7 @@ npm ci
 npm test
 ```
 
-`npm test` runs the JavaScript syntax checks and 63 automated tests (43 JavaScript and 20 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
+`npm test` runs the JavaScript syntax checks and 65 automated tests (45 JavaScript and 20 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
 
 ## Powerwall 3 LAN Config — Option 5 (Recommended)
 
@@ -203,7 +203,7 @@ The daily total is independent of the tariff window and remains visible when `Gr
 
 ## Grid export window display
 
-The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, `EXPORTED 5-9PM`, and `FROM BATTERY (EST.)` in that order, using the same label and value fonts with extra spacing between readings. The window reading is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. It uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
+The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, `EXPORTED 5-9PM`, and `FROM BATTERY` in that order, using the same label and value fonts with extra spacing between readings. The window reading is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. It uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
 
 Configure the window at the top level of the module config:
 
@@ -225,7 +225,7 @@ Update the module files and restart MagicMirror to enable the default display. N
 
 ### Battery contribution to window exports
 
-`FROM BATTERY (EST.)` below the export-window total shows an **estimated percentage of exported energy** supplied by the battery during that same configured window. It is not battery state of charge. It follows `GridExportWindow.start`/`end` and is hidden together with the window when `GridExportWindow.show` is false.
+`FROM BATTERY` below the export-window total shows an **estimated percentage of exported energy** supplied by the battery during that same configured window. It is not battery state of charge. It counts the same `GridExportWindow.start`/`end` interval. Its heading and number are shown only from the configured start (inclusive) until local midnight (exclusive), including after the window ends; both are hidden before the start. Visibility follows the gateway site timezone supplied by the server, including daylight saving time, and updates on display refresh. It is also hidden when `GridExportWindow.show` is false. The `≈` prefix still identifies the percentage as an estimate.
 
 The grid meter cannot identify the origin of exported energy. The estimate allocates exports proportionally to concurrent solar generation and positive battery discharge: `battery discharge / (solar generation + battery discharge)`. This assumes solar and batteries supply the home and grid in the same proportions. For example, 3 kW solar plus 1 kW battery discharge attributes 25% of concurrent exports to the battery. Charging contributes zero. This is an allocation estimate, not a separately metered battery-to-grid measurement.
 

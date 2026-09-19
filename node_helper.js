@@ -247,6 +247,7 @@ module.exports = NodeHelper.create({
 
     return {
       source: useV1r ? "v1r" : "tedapi",
+      timeZone: this.effectiveTedapiTimeZone(config),
       siteName: config.tedapi.siteName || payload.siteName || "",
       solarPower: Number(payload.solarPower) || 0,
       homePower: Number(payload.homePower) || 0,

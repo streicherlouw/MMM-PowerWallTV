@@ -232,6 +232,7 @@ test("export window uses existing summary fonts, follows its label settings and 
     Module: { register: (_, definition) => { frontend = definition; } }
   });
   frontend.config = { local: {}, fleet: {}, GridExportWindow: { show: true } };
+  frontend.batteryShareVisible = () => true;
   frontend.formatNumber = n => n.toFixed(1);
   frontend.el = (_, className, textContent) => ({ className, textContent, children: [], appendChild(child) { this.children.push(child); } });
   const snapshot = { source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 42000,
@@ -245,7 +246,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   assert.equal(dom.children[2].children[0].textContent, "EXPORTED 5-9PM");
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   assert.equal(dom.children[2].children[1].className, dom.children[0].children[1].className);
-  assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY (EST.)");
+  assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY");
   assert.equal(dom.children[3].children[1].textContent, "≈ 37.5%");
   assert.equal(dom.children[3].children[1].className, dom.children[2].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
@@ -257,7 +258,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   snapshot.gridExportWindow.batterySharePartial = true;
   snapshot.gridExportWindow.batteryPercent = null;
   dom = frontend.renderSummary(snapshot);
-  assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY (EST.) (PARTIAL)");
+  assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY (PARTIAL)");
   assert.equal(dom.children[3].children[1].textContent, "— %");
   snapshot.gridExportWindow = null;
   assert.equal(frontend.renderSummary(snapshot).children[2].children[1].textContent, "— kWh");
@@ -282,4 +283,43 @@ test("export window is persisted with aggregate history and forwarded to display
   } });
   assert.equal(snapshot.gridExportWindow, result.gridExportWindow);
   assert.equal(snapshot.gridExportToday, result.gridExportToday);
+});
+
+test("battery share visibility starts at local premium time, continues after its end, and stops at midnight", () => {
+  let frontend;
+  vm.runInNewContext(fs.readFileSync(path.join(directory, "MMM-PowerWallTV.js"), "utf8"), {
+    Module: { register: (_, definition) => { frontend = definition; } }
+  });
+  frontend.config = { tedapi: { timezone: "UTC" } };
+  const visible = date => frontend.batteryShareVisible("17:00", "Australia/Melbourne", new Date(date));
+  assert.equal(visible("2026-09-19T16:59:59+10:00"), false);
+  assert.equal(visible("2026-09-19T17:00:00+10:00"), true);
+  assert.equal(visible("2026-09-19T21:01:00+10:00"), true);
+  assert.equal(visible("2026-09-19T23:59:59+10:00"), true);
+  assert.equal(visible("2026-09-20T00:00:00+10:00"), false);
+  assert.equal(visible("2026-10-05T17:00:00+11:00"), true);
+  assert.equal(visible("2026-10-05T16:59:59+11:00"), false);
+  assert.equal(frontend.batteryShareVisible("16:30", "Australia/Melbourne", new Date("2026-09-19T16:30:00+10:00")), true);
+});
+
+test("outside battery display hours both heading and percentage disappear but energy totals remain", () => {
+  let frontend;
+  vm.runInNewContext(fs.readFileSync(path.join(directory, "MMM-PowerWallTV.js"), "utf8"), {
+    Module: { register: (_, definition) => { frontend = definition; } }
+  });
+  frontend.config = { local: {}, fleet: {} };
+  frontend.formatNumber = n => n.toFixed(1);
+  frontend.el = (_, className, textContent) => ({ className, textContent, children: [], appendChild(child) { this.children.push(child); } });
+  const snapshot = { source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 40000,
+    gridExportToday: { energyWh: 20000 }, gridExportWindow: { energyWh: 5000, batteryPercent: 40 } };
+  frontend.batteryShareVisible = () => false;
+  let dom = frontend.renderSummary(snapshot);
+  assert.equal(dom.children.length, 3);
+  assert.ok(!JSON.stringify(dom).includes("FROM BATTERY"));
+  assert.ok(JSON.stringify(dom).includes("EXPORTED 5-9PM"));
+  frontend.batteryShareVisible = () => true;
+  dom = frontend.renderSummary(snapshot);
+  assert.equal(dom.children.length, 4);
+  assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY");
+  assert.equal(dom.children[3].children[1].textContent, "≈ 40.0%");
 });

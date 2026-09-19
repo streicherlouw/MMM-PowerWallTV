@@ -382,13 +382,15 @@ Module.register("MMM-PowerWallTV", {
         ? `${reading.estimated ? "≈ " : ""}${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
       block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
       summary.appendChild(block);
-      const battery = this.el("div", "pwtv-summary-generated pwtv-summary-battery-share");
-      battery.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
-        "FROM BATTERY (EST.)" + (reading && reading.batterySharePartial ? " (PARTIAL)" : "")));
-      const percent = reading && Number.isFinite(reading.batteryPercent)
-        ? `≈ ${this.formatNumber(reading.batteryPercent)}%` : "— %";
-      battery.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", percent));
-      summary.appendChild(battery);
+      if (this.batteryShareVisible(exportWindow.start, snapshot.timeZone)) {
+        const battery = this.el("div", "pwtv-summary-generated pwtv-summary-battery-share");
+        battery.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
+          "FROM BATTERY" + (reading && reading.batterySharePartial ? " (PARTIAL)" : "")));
+        const percent = reading && Number.isFinite(reading.batteryPercent)
+          ? `≈ ${this.formatNumber(reading.batteryPercent)}%` : "— %";
+        battery.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", percent));
+        summary.appendChild(battery);
+      }
     }
 
     if (!snapshot.solarEnergyToday && Number.isFinite(snapshot.solarEnergyExportedWh) && snapshot.solarEnergyExportedWh > 0) {
@@ -874,6 +876,18 @@ Module.register("MMM-PowerWallTV", {
     const count = Number(snapshot.batteryCount) || 0;
     const capacityKwh = Math.round(count * 13.5);
     return capacityKwh > 0 ? `POWERWALL ${capacityKwh.toFixed(0)} kWh` : "POWERWALL";
+  },
+
+  batteryShareVisible(start, timeZone, now = new Date()) {
+    const [hour, minute] = start.split(":").map(Number);
+    const zone = timeZone || (this.config.tedapi && this.config.tedapi.timezone) || undefined;
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+    }).formatToParts(now);
+    const value = type => Number(parts.find(part => part.type === type).value);
+    // The completed premium-window share remains visible after its end time,
+    // then disappears when the local clock rolls over to the next day.
+    return value("hour") * 60 + value("minute") >= hour * 60 + minute;
   },
 
   exportWindowLabel(start, end) {
