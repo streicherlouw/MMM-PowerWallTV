@@ -5,6 +5,8 @@
 - Renamed the heading to `FROM BATTERY`, retaining the estimated-percentage indicator.
 - Show the heading and percentage from the configured premium-window start until local midnight, using the server-provided site timezone.
 - Keep the completed share visible after the export window ends; hide it before the next window starts.
+- Documented the daily visibility schedule, blank/partial percentage behavior, and the shared visibility switch for the window and battery rows.
+- Verified 65 tests, including custom start times, midnight boundaries, and daylight saving time.
 
 ## 2026-09-18 — Battery share of export-window energy
 

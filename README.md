@@ -13,9 +13,9 @@ In v1r/TEDAPI mode, the upper-left summary displays these readings in matching f
 | `GENERATED TODAY` | Solar energy produced since local midnight |
 | `EXPORTED TODAY` | Total energy sent to the grid since local midnight, from solar and batteries |
 | `EXPORTED 5-9PM` | Energy sent to the grid during the configured daily window; the label follows its start/end times |
-| `FROM BATTERY` | Estimated percentage of the window's exported energy supplied by discharging batteries |
+| `FROM BATTERY` | Estimated battery share of window exports; shown from the window start until local midnight |
 
-Energy readings use kWh; the battery contribution uses %. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides only the window reading.
+Energy readings use kWh; the battery contribution uses %. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides the window reading and its battery-share heading/value, while daily totals remain visible.
 
 The display is separate from optional [BatteryExportToGridLimit](#batteryexporttogridlimit) control, which disables battery export below a lower charge threshold and re-enables it at an upper threshold. The [terminal script](#switch-automatic-export-control-on-or-off-from-the-terminal) switches that automation on or off by updating and reloading the MagicMirror config. Details and configuration are below; see [CHANGELOG.md](CHANGELOG.md) for release history.
 
@@ -227,11 +227,28 @@ Update the module files and restart MagicMirror to enable the default display. N
 
 `FROM BATTERY` below the export-window total shows an **estimated percentage of exported energy** supplied by the battery during that same configured window. It is not battery state of charge. It counts the same `GridExportWindow.start`/`end` interval. Its heading and number are shown only from the configured start (inclusive) until local midnight (exclusive), including after the window ends; both are hidden before the start. Visibility follows the gateway site timezone supplied by the server, including daylight saving time, and updates on display refresh. It is also hidden when `GridExportWindow.show` is false. The `≈` prefix still identifies the percentage as an estimate.
 
+With the default 17:00–21:00 window, the display behaves as follows (all times are local):
+
+| Time | `EXPORTED 5-9PM` | `FROM BATTERY` heading and percentage |
+| --- | --- | --- |
+| Midnight to before 5 PM | Today's window total starts at zero | Hidden |
+| 5 PM to 9 PM | Accumulates exported kWh | Visible; updates as attributable exports accumulate |
+| 9 PM to before midnight | Retains the completed window total | Visible; retains the completed window share |
+| At midnight | Resets for the new day | Hidden until the next configured start |
+
+Changing `GridExportWindow.start` moves the battery row's appearance time. Changing `end` changes the counting interval, but the completed percentage remains visible until midnight. These changes take effect on the next display refresh after reloading the config.
+
 The grid meter cannot identify the origin of exported energy. The estimate allocates exports proportionally to concurrent solar generation and positive battery discharge: `battery discharge / (solar generation + battery discharge)`. This assumes solar and batteries supply the home and grid in the same proportions. For example, 3 kW solar plus 1 kW battery discharge attributes 25% of concurrent exports to the battery. Charging contributes zero. This is an allocation estimate, not a separately metered battery-to-grid measurement.
 
 The module averages sampled source fractions over each short polling interval, clips intervals at the configured window boundaries, and weights the fractions by grid-exported Wh. It persists estimated battery-export Wh alongside total exported Wh across restarts; the displayed percentage is their ratio, never an unweighted average of instantaneous percentages. Values are bounded to 0–100% and marked `≈`.
 
 Before any export, the reading is `— %` because there is no energy to divide by. Missing power data, gaps longer than five minutes, or older saved exports without attribution leave the percentage unavailable and mark it `(PARTIAL)` rather than treating unknown exports as solar-only. The kWh total remains available. Historical hourly readings cannot reconstruct battery contribution reliably; normal attribution starts with fresh polling samples. At local midnight, the next day's counters start over. This display does not change the battery export-control policy.
+
+#### Why might the battery percentage be blank?
+
+During its display hours, `— %` means that no percentage is available, not that the battery contributed zero. Before any window exports it is undefined. If tracking is installed or upgraded partway through a window, earlier exported kWh may have no saved battery attribution: the module shows `(PARTIAL)` and withholds a whole-window percentage. Later samples cannot recover the missing source information from the lifetime grid counter. A subsequent window can provide a percentage once exports occur, provided polling covers the window without missing attribution data. The same limitation applies after long polling gaps or unavailable source-power readings.
+
+Before the configured start, the entire row is deliberately hidden, including any unavailable-value indicator.
 
 ## BatteryExportToGridLimit
 
@@ -438,7 +455,7 @@ Fleet mode also fetches `calendar_history?kind=energy&period=day` to show the "E
 | `gridHysteresisWatts` | `30` | Import/export deadband in watts; readings inside the band keep the previous grid direction to avoid flicker |
 | `gridAnimationThresholdWatts` | `30` | Minimum raw grid import/export watts required before grid flow animations are shown |
 | `staleDataOnError` | `true` | Keeps the last good snapshot visible when a refresh fails |
-| `GridExportWindow.show` | `true` | Display grid export energy for the configured daily window |
+| `GridExportWindow.show` | `true` | Display the export-window energy and its battery share during the applicable display hours |
 | `GridExportWindow.start` | `"17:00"` | Start time in the module's local timezone, 24-hour `HH:mm` |
 | `GridExportWindow.end` | `"21:00"` | Same-day end time, exclusive; `24:00` is allowed |
 | `BatteryExportToGridLimit.active` | `false` | Enable automatic battery export permission control in option 5 |
