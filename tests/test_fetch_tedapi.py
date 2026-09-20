@@ -231,11 +231,11 @@ class ScheduledControlTests(unittest.TestCase):
             (False, 100, "pv_only", "self_consumption"),
             (True, 95, "battery_ok", "autonomous"),
             (True, 70, "battery_ok", "autonomous"),
-            (True, 69, "pv_only", "autonomous"),
-            (True, 80, "pv_only", "autonomous"),
+            (True, 69, "pv_only", "self_consumption"),
+            (True, 80, "pv_only", "self_consumption"),
             (True, 90, "battery_ok", "autonomous"),
             (False, 95, "pv_only", "self_consumption"),
-            (True, 80, "pv_only", "autonomous")]:
+            (True, 80, "pv_only", "self_consumption")]:
             result = self.control(self.pw, charge, True, 70, 90, inside)
             self.assertNotEqual(result["action"], "error")
             self.assertEqual(self.state, {"export": export, "mode": mode})
@@ -296,6 +296,27 @@ class ScheduledControlTests(unittest.TestCase):
                 self.control(self.pw, 100, True, 70, 90, True, options)
         self.pw.post.assert_not_called()
         self.pw.set_grid_export.assert_not_called()
+
+    def test_coupled_65_90_cycle_and_restart_repair(self):
+        self.state.update(export="battery_ok", mode="autonomous")
+        for charge, export, mode in [(65, "battery_ok", "autonomous"),
+                                     (64.9, "pv_only", "self_consumption"),
+                                     (80, "pv_only", "self_consumption"),
+                                     (90, "battery_ok", "autonomous")]:
+            result = self.control(self.pw, charge, True, 65, 90, True)
+            self.assertEqual(self.state, {"export": export, "mode": mode})
+            self.assertEqual(result["operationalModeTarget"], mode)
+        # Upgrade/restart after export was stopped but mode had not followed.
+        self.state.update(export="pv_only", mode="autonomous")
+        self.control(self.pw, 67, True, 65, 90, True)
+        self.assertEqual(self.state["mode"], "self_consumption")
+
+    def test_failed_export_write_does_not_advance_mode(self):
+        self.state.update(export="battery_ok", mode="autonomous")
+        self.pw.set_grid_export.side_effect = TimeoutError()
+        result = self.control(self.pw, 64, True, 65, 90, True)
+        self.assertEqual(result["action"], "error")
+        self.pw.post.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

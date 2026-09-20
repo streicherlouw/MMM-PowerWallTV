@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-20 — Couple operational mode to export hysteresis
+
+- Select the configured outside operational mode when export is stopped by the lower threshold, and restore the inside mode when export re-arms.
+- Repair mismatched mode/export states after restarts while preserving independent control switches.
+- Set the HomeScreen deployment lower threshold to 65%, retaining 90% re-arm.
+- Add paired-transition, exact-boundary, restart and export-failure tests.
+
 ## 2026-09-20 — Repair inflated daily grid exports
 
 - Reject temporary counter drops and implausible jumps instead of adding a lifetime counter to daily exports.

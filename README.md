@@ -37,7 +37,7 @@ npm ci
 npm test
 ```
 
-`npm test` runs the JavaScript syntax checks and 75 automated tests (48 JavaScript and 27 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
+`npm test` runs the JavaScript syntax checks and 77 automated tests (48 JavaScript and 29 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
 
 ## Powerwall 3 LAN Config — Option 5 (Recommended)
 
@@ -288,7 +288,7 @@ Set `active: false` to stop automatic changes. This leaves both current gateway 
 
 On each successful refresh, the controller reads both export permission and operational mode, writes only required changes, and verifies each write. Export permission is updated before operational mode. An unconfirmed write is reported and retried on the next poll; the two writes are not atomic. When operational-mode control is enabled, unknown/unavailable modes and `backup` mode prevent automatic changes. When that lever is disabled, its mode reading does not block export-permission control. The site-wide `never` export rule is preserved.
 
-With the default targets, outside the window `pv_only` resets the export hysteresis: the next window needs 90% (or the configured upper threshold) to enable battery export. Savings mode remains selected throughout the window even when the lower threshold stops battery export. Backup reserve and grid-charging permission are not changed. Savings mode uses the tariff already configured in Tesla; export permission does not guarantee a particular export rate.
+With the default targets, outside the window `pv_only` resets the export hysteresis: the next window needs 90% (or the configured upper threshold) to enable battery export. When both levers are enabled, a confirmed `pv_only` export rule also selects `operationalMode.outside`, including inside the premium window. Both settings remain in this stopped state until the upper threshold re-arms export. An independently enabled mode lever still follows the time window when export control is disabled. Backup reserve and grid-charging permission are not changed. Savings mode uses the tariff already configured in Tesla; export permission does not guarantee a particular export rate.
 
 Window transitions occur on the next successful polling refresh, not an independent clock timer. If MagicMirror stops, the last settings remain until polling resumes. Disabling automation stops both controls without restoring a mode. The existing terminal on/off script controls both levers.
 
@@ -561,3 +561,9 @@ Visual assets are from the MIT-licensed Powerwall-TV project; see [THIRD_PARTY_N
 Daily and premium-window export totals reject decreases and implausible jumps in the cumulative grid-export counter. A temporary zero cannot become a new baseline followed by a lifetime-sized export increment. Two successive readings consistent with a new counter range confirm a reset; only the increment between them is counted, and the total remains partial. The plausibility guard permits up to 100 kW averaged over the elapsed interval, plus 1 kWh tolerance, for this residential dashboard.
 
 On the first refresh after this fix, older export accumulators are rebuilt from retained hourly meter readings. A sample within five minutes before midnight can recover the daily baseline as an estimate. Missing boundary data remains partial; if no useful history remains, tracking starts from the next valid sample. Historical battery attribution may be unavailable after reconstruction. Solar generation history and battery-control settings are unchanged.
+
+### Coupled charge-threshold behavior
+
+The HomeScreen deployment uses `lowerThreshold: 65` and `upperThreshold: 90`. With the configured targets, below 65% the controller sets `pv_only` and `self_consumption` in the same polling cycle. At exactly 65% the previous state is retained. From 65% to below 90%, the gateway export rule retains the on/off state; at 90% or above during the premium window, the pair becomes `battery_ok` and `autonomous`. Outside the window, the configured outside targets apply.
+
+The two API writes are sequential, not atomic: export permission is written and confirmed before operational mode. If the mode write fails, the next poll repairs the mismatch using the confirmed export state. Both lever enable flags and custom mode targets remain supported. Changing the lower threshold alone does not re-arm a battery already stopped by the previous threshold; it still waits for 90%.

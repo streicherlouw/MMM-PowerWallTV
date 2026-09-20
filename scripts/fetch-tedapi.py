@@ -142,7 +142,11 @@ def scheduled_battery_control(powerwall, percentage, active, lower, upper, in_wi
     if not operation["enabled"]:
         status["modeAction"] = "inactive"
         return status
-    target = operation[period]
+    # With both levers enabled, the confirmed export rule is the durable
+    # hysteresis state. A lower-threshold stop also selects the outside mode;
+    # retain that pair in the deadband, including after a process restart.
+    target = operation["outside"] if export["enabled"] and status["exportMode"] == "pv_only" else operation[period]
+    status["operationalModeTarget"] = target
     if mode != target:
         try:
             # Mode-only payload avoids reserve back-fill in older set_mode().
