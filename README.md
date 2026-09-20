@@ -17,7 +17,7 @@ In v1r/TEDAPI mode, the upper-left summary displays these readings in matching f
 
 Energy readings use kWh; the battery contribution uses %. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated solar generation (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides the window reading and its battery-share heading/value, while daily totals remain visible.
 
-The display is separate from optional [BatteryExportToGridLimit](#batteryexporttogridlimit) control, which disables battery export below a lower charge threshold and re-enables it at an upper threshold. The [terminal script](#switch-automatic-export-control-on-or-off-from-the-terminal) switches that automation on or off by updating and reloading the MagicMirror config. Details and configuration are below; see [CHANGELOG.md](CHANGELOG.md) for release history.
+The display is separate from optional [BatteryExportToGridLimit](#batteryexporttogridlimit) control, which schedules export permission and operational mode during the premium window, with charge thresholds protecting battery export. The [terminal script](#switch-automatic-export-control-on-or-off-from-the-terminal) switches that automation on or off by updating and reloading the MagicMirror config. Details and configuration are below; see [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Install
 
@@ -107,7 +107,9 @@ These files are Git-ignored. Alternatively, set `PWTV_TEDAPI_GATEWAY_PASSWORD` i
     BatteryExportToGridLimit: {
       active: false,
       lowerThreshold: 70,
-      upperThreshold: 90
+      upperThreshold: 90,
+      gridExport: { enabled: true, inside: "battery_ok", outside: "pv_only" },
+      operationalMode: { enabled: true, inside: "autonomous", outside: "self_consumption" }
     },
     width: "100%",
     maxWidth: "1050px",
@@ -185,7 +187,9 @@ npm test
 
 Substitute the executable from `tedapi.python` when using a separate environment. Run the read-only smoke test above, review `BatteryExportToGridLimit.active`, then restart MagicMirror. Updates preserve the Git-ignored `.auth` directory and the energy-history file outside the repository. Keep your own secure backup of the registered RSA key; a replacement key must be registered separately.
 
-To roll back, restore the saved configuration and your saved code revision, then restart with the previous Python environment. Disabling or rolling back the automation does **not** undo its last gateway export setting.
+**Upgrading an existing active controller:** omitted lever settings default to both enabled, with savings/threshold-controlled export inside the window and self-powered/solar-only export outside it. Review `GridExportWindow.start/end`, timezone and both lever blocks before restarting. To retain permission-only control, set `operationalMode.enabled: false`; the export lever still follows the configured window. To retain all-day charge-threshold export control, also set `gridExport.outside: "battery_ok"`.
+
+To roll back, restore the saved configuration and your saved code revision, then restart with the previous Python environment. Disabling or rolling back the automation does **not** undo its last gateway export permission or operational mode.
 
 ### Migrating the existing Wi-Fi deployment
 
@@ -252,7 +256,7 @@ Before the configured start, the entire row is deliberately hidden, including an
 
 ## BatteryExportToGridLimit
 
-Option 5 controls both **battery export permission** and **operational mode**. During `GridExportWindow.start`–`end` (default 17:00–21:00), it selects savings / time-based control (`autonomous`) and applies the charge thresholds below. Outside that window it selects self-powered (`self_consumption`) and `pv_only`. The schedule uses `tedapi.timezone` (host timezone by default), including daylight saving, and runs even if `GridExportWindow.show` is false. The feature is inactive by default. Add this top-level block inside the module's `config` to activate it:
+Option 5 can control both **battery export permission** and **operational mode**. With the default targets, during `GridExportWindow.start`–`end` (default 17:00–21:00), it selects savings / time-based control (`autonomous`) and applies the charge thresholds below. Outside that window it selects self-powered (`self_consumption`) and `pv_only`. The schedule uses `tedapi.timezone` (host timezone by default), including daylight saving, and runs even if `GridExportWindow.show` is false. The feature is inactive by default. Add this top-level block inside the module's `config` to activate it:
 
 ```js
 BatteryExportToGridLimit: {
@@ -264,7 +268,9 @@ BatteryExportToGridLimit: {
 },
 ```
 
-| Charge (Tesla-app percentage) | Action inside the premium window when active |
+The following rules apply whenever an enabled export lever targets `battery_ok` (inside the window by default). A `pv_only` target disables battery export regardless of charge.
+
+| Charge (Tesla-app percentage) | Action when export control targets `battery_ok` |
 | --- | --- |
 | Below `lowerThreshold` (e.g. less than 70%) | Set `pv_only`: stop battery export while permitting solar export |
 | From `lowerThreshold` up to, but below, `upperThreshold` (70% to less than 90%) | Retain the gateway's existing export setting |
@@ -277,6 +283,20 @@ Every successful v1r battery refresh reads the current export setting, even whil
 The site-wide `never` rule prohibits solar export too, so this feature preserves it and reports that automation is blocked. Use `pv_only` as the starting rule when you want this feature to manage battery export. Allowing battery export grants permission; Tesla's operating mode, backup reserve and site limits still determine actual power flow.
 
 Set `active: false` to stop automatic changes. This leaves both current gateway settings unchanged. Both thresholds must be numbers with `0 <= lowerThreshold < upperThreshold <= 100`. Active control requires option 5 and a registered RSA key; it is not supported in demo, local JSON, Wi-Fi TEDAPI or Fleet mode.
+
+### Premium-window mode control
+
+On each successful refresh, the controller reads both export permission and operational mode, writes only required changes, and verifies each write. Export permission is updated before operational mode. An unconfirmed write is reported and retried on the next poll; the two writes are not atomic. When operational-mode control is enabled, unknown/unavailable modes and `backup` mode prevent automatic changes. When that lever is disabled, its mode reading does not block export-permission control. The site-wide `never` export rule is preserved.
+
+With the default targets, outside the window `pv_only` resets the export hysteresis: the next window needs 90% (or the configured upper threshold) to enable battery export. Savings mode remains selected throughout the window even when the lower threshold stops battery export. Backup reserve and grid-charging permission are not changed. Savings mode uses the tariff already configured in Tesla; export permission does not guarantee a particular export rate.
+
+Window transitions occur on the next successful polling refresh, not an independent clock timer. If MagicMirror stops, the last settings remain until polling resumes. Disabling automation stops both controls without restoring a mode. The existing terminal on/off script controls both levers.
+
+The helper accepts `--premium-controls '{"gridExport":{"enabled":true,"inside":"battery_ok","outside":"pv_only"},"operationalMode":{"enabled":true,"inside":"autonomous","outside":"self_consumption"}}'` for the same lever settings. It also accepts `--export-window-start 17:00 --export-window-end 21:00` with `--timezone Australia/Melbourne`. Snapshot control status includes `inPremiumWindow`, `operationalModeBefore`, `operationalMode`, `operationalModeTarget`, and `modeAction` when a mode decision completes. Mode writes use a partial `/api/operation` payload to avoid older pyPowerwall versions also rewriting backup reserve.
+
+Each lever has its own `enabled` flag and `inside`/`outside` target in `BatteryExportToGridLimit`. Setting `gridExport.enabled: false` leaves export permission untouched; setting `operationalMode.enabled: false` leaves operational mode untouched. `active: false` disables both. Export targets accept `battery_ok` or `pv_only`; whenever the target is `battery_ok`, the 70%/90% hysteresis still applies. Operational targets accept `autonomous` (savings) or `self_consumption` (self-powered). Defaults are shown above; reverse or equal targets are supported. The shared schedule is `GridExportWindow.start`/`end`.
+
+`EXPORTED TODAY`, the premium-window export total, and `FROM BATTERY` display numbers without an approximation prefix. Estimates are still tracked internally; battery attribution remains an estimate, and unavailable readings still show a dash. The solar generation estimate indicator is unchanged.
 
 ### Switch automatic export control on or off from the terminal
 
@@ -307,7 +327,7 @@ ssh pi@homescreen.local 'node ~/MagicMirror/modules/MMM-PowerWallTV/scripts/batt
 ssh pi@homescreen.local 'node ~/MagicMirror/modules/MMM-PowerWallTV/scripts/battery-export-limit.js off'
 ```
 
-Turning the feature **off** stops automatic control after reload; it does **not** change the Powerwall's current export permission or operational mode. Turning it **on** resumes the configured charge-threshold policy on the next successful refresh.
+Turning the feature **off** stops automatic control after reload; it does **not** change the Powerwall's current export permission or operational mode. Turning it **on** resumes the configured schedule, enabled levers and charge thresholds on the next successful refresh.
 
 The snapshot contains `gridExportMode` plus `batteryExportToGridLimit` with the charge percentage, thresholds, setting before/after, action (`inactive`, `unchanged`, `enabled`, `disabled`, `blocked` or `error`) and any error. The decision uses the latest successful polling sample, so a stopped module or unavailable gateway cannot enforce thresholds until polling resumes.
 
@@ -460,9 +480,15 @@ Fleet mode also fetches `calendar_history?kind=energy&period=day` to show the "E
 | `GridExportWindow.show` | `true` | Display the export-window energy and its battery share during the applicable display hours |
 | `GridExportWindow.start` | `"17:00"` | Start time in the module's local timezone, 24-hour `HH:mm` |
 | `GridExportWindow.end` | `"21:00"` | Same-day end time, exclusive; `24:00` is allowed |
-| `BatteryExportToGridLimit.active` | `false` | Enable automatic battery export permission control in option 5 |
+| `BatteryExportToGridLimit.active` | `false` | Master switch for both configured controls in option 5 |
 | `BatteryExportToGridLimit.lowerThreshold` | `70` | Disable battery export below this Tesla-app state-of-charge percentage |
 | `BatteryExportToGridLimit.upperThreshold` | `90` | Re-enable battery export at or above this percentage |
+| `BatteryExportToGridLimit.gridExport.enabled` | `true` | Control export permission when the master switch is active |
+| `BatteryExportToGridLimit.gridExport.inside` | `"battery_ok"` | Inside-window export target: `battery_ok` (subject to thresholds) or `pv_only` |
+| `BatteryExportToGridLimit.gridExport.outside` | `"pv_only"` | Outside-window export target; same accepted values |
+| `BatteryExportToGridLimit.operationalMode.enabled` | `true` | Control operational mode when the master switch is active |
+| `BatteryExportToGridLimit.operationalMode.inside` | `"autonomous"` | Inside-window mode: `autonomous` (savings) or `self_consumption` (self-powered) |
+| `BatteryExportToGridLimit.operationalMode.outside` | `"self_consumption"` | Outside-window mode; same accepted values |
 | `imageScale` | `1.2` | Zooms the home scene artwork and aligned overlays |
 | `imageHorizontalOffset` | `"-2%"` | Moves the zoomed home scene left/right |
 | `imageVerticalOffset` | `"3%"` | Moves the zoomed home scene up/down |
@@ -529,17 +555,3 @@ On the tested Raspberry Pi OS labwc setup, keep the desktop profile (`~/.config/
 Powerwall Gateway certificates are usually self-signed, so `rejectUnauthorized: false` is the practical default for local mode. Keep your MagicMirror `config.js` and `.pwtv-fleet-tokens.json` private because they contain Gateway credentials or Fleet API tokens.
 
 Visual assets are from the MIT-licensed Powerwall-TV project; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-### Premium-window mode control
-
-On each successful refresh, the controller reads both export permission and operational mode, writes only required changes, and verifies each write. Export permission is updated before operational mode. An unconfirmed write is reported and retried on the next poll; the two writes are not atomic. Unknown/unavailable modes and `backup` mode prevent automatic changes. The site-wide `never` export rule is preserved.
-
-Outside the window, `pv_only` resets the export hysteresis: the next window needs 90% (or the configured upper threshold) to enable battery export. Savings mode remains selected throughout the window even when the lower threshold stops battery export. Backup reserve and grid-charging permission are not changed. Savings mode uses the tariff already configured in Tesla; export permission does not guarantee a particular export rate.
-
-Window transitions occur on the next successful polling refresh, not an independent clock timer. If MagicMirror stops, the last settings remain until polling resumes. Disabling automation stops both controls without restoring a mode. The existing terminal on/off script controls both levers.
-
-The helper accepts `--export-window-start 17:00 --export-window-end 21:00` with `--timezone Australia/Melbourne`. Snapshot control status includes `inPremiumWindow`, `operationalModeBefore`, `operationalMode`, `operationalModeTarget`, and `modeAction` when a mode decision completes. Mode writes use a partial `/api/operation` payload to avoid older pyPowerwall versions also rewriting backup reserve.
-
-Each lever has its own `enabled` flag and `inside`/`outside` target in `BatteryExportToGridLimit`. Setting `gridExport.enabled: false` leaves export permission untouched; setting `operationalMode.enabled: false` leaves operational mode untouched. `active: false` disables both. Export targets accept `battery_ok` or `pv_only`; whenever the target is `battery_ok`, the 70%/90% hysteresis still applies. Operational targets accept `autonomous` (savings) or `self_consumption` (self-powered). Defaults are shown above; reverse or equal targets are supported. The shared schedule is `GridExportWindow.start`/`end`.
-
-`EXPORTED TODAY`, the premium-window export total, and `FROM BATTERY` display numbers without an approximation prefix. Estimates are still tracked internally; battery attribution remains an estimate, and unavailable readings still show a dash. The solar generation estimate indicator is unchanged.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-20 — Configurable-control documentation refresh
+
+- Consolidate premium-window behavior beside the controller configuration.
+- Expand installation examples and the option reference with both independent levers and their targets.
+- Document migration defaults, permission-only/all-day alternatives, rollback behavior and helper arguments.
+- Clarify export display formatting and mode-read requirements for disabled levers.
+
 ## 2026-09-20 — Premium-window battery mode control
 
 - Make both levers independently configurable, with inside/outside targets.
