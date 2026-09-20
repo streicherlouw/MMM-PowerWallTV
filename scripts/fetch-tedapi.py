@@ -4,6 +4,9 @@ import json
 import math
 import os
 import sys
+import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 def fail(message):
@@ -32,7 +35,7 @@ def valid_percentage(value):
             and math.isfinite(value) and 0 <= value <= 100)
 
 
-def battery_export_limit(powerwall, percentage, active=False, lower=70, upper=90):
+def battery_export_limit(powerwall, percentage, active=False, lower=70, upper=90, allow_export=True):
     """Use the gateway's export rule as the durable hysteresis state.
 
     pv_only stays off until the upper threshold, even after a module restart.
@@ -62,7 +65,7 @@ def battery_export_limit(powerwall, percentage, active=False, lower=70, upper=90
         status.update(action="blocked", error="BatteryExportToGridLimit: preserving the site's no-export rule (never).")
         return status
     target = current
-    if percentage < lower:
+    if not allow_export or percentage < lower:
         target = "pv_only"
     elif percentage >= upper:
         target = "battery_ok"
@@ -83,6 +86,80 @@ def battery_export_limit(powerwall, percentage, active=False, lower=70, upper=90
     return status
 
 
+def premium_window(timezone, start="17:00", end="21:00", now=None):
+    def minutes(value):
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+            raise ValueError("Invalid export window time")
+        return int(value[:2]) * 60 + int(value[3:])
+    first, last = minutes(start), 1440 if end == "24:00" else minutes(end)
+    if first >= last:
+        raise ValueError("Export window must start before it ends")
+    zone = ZoneInfo(timezone)
+    local = datetime.now(zone) if now is None else now.astimezone(zone)
+    return first <= local.hour * 60 + local.minute < last
+
+
+def control_settings(options=None):
+    options = options or {}
+    result = {}
+    for name, inside, outside, allowed in (
+        ("gridExport", "battery_ok", "pv_only", ("battery_ok", "pv_only")),
+        ("operationalMode", "autonomous", "self_consumption", ("autonomous", "self_consumption"))):
+        value = {"enabled": True, "inside": inside, "outside": outside}
+        value.update(options.get(name, {}))
+        if type(value["enabled"]) is not bool or value["inside"] not in allowed or value["outside"] not in allowed:
+            raise ValueError("Invalid premium control settings")
+        result[name] = value
+    return result
+
+
+def scheduled_battery_control(powerwall, percentage, active, lower, upper, in_window, settings=None):
+    controls = control_settings(settings)
+    export, operation = controls["gridExport"], controls["operationalMode"]
+    period = "inside" if in_window else "outside"
+    mode = safe(lambda: powerwall.get_mode(force=True))
+    mode = mode if isinstance(mode, str) else None
+    writable = mode in ("self_consumption", "autonomous")
+    can_write = active and valid_percentage(percentage)
+    if operation["enabled"] and not writable:
+        can_write = False
+    status = battery_export_limit(powerwall, percentage, can_write and export["enabled"], lower, upper,
+                                  allow_export=export[period] == "battery_ok")
+    status.update(active=active, inPremiumWindow=in_window, operationalModeBefore=mode,
+                  operationalMode=mode, operationalModeTarget=operation[period],
+                  gridExportControlEnabled=export["enabled"], modeControlEnabled=operation["enabled"])
+    if not active:
+        return status
+    if not can_write:
+        status.update(action="error", error="BatteryExportToGridLimit: charge or operational mode unavailable/unsupported; no change sent.")
+        return status
+    if status["exportMode"] == "never":
+        status.update(action="blocked", error="BatteryExportToGridLimit: preserving the site's no-export rule (never).")
+    if status["action"] in ("error", "blocked"):
+        return status
+    if not export["enabled"]:
+        status["action"] = "unchanged"
+    if not operation["enabled"]:
+        status["modeAction"] = "inactive"
+        return status
+    target = operation[period]
+    if mode != target:
+        try:
+            # Mode-only payload avoids reserve back-fill in older set_mode().
+            powerwall.post(api="/api/operation", payload={"real_mode": target})
+            actual = powerwall.get_mode(force=True)
+            status["operationalMode"] = actual
+            if actual != target:
+                raise ValueError("Mode not confirmed")
+            status["modeAction"] = "changed"
+        except Exception:
+            status.update(action="error", modeAction="error",
+                          error="BatteryExportToGridLimit: mode change not confirmed; will recheck next refresh.")
+    else:
+        status["modeAction"] = "unchanged"
+    return status
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch a Powerwall snapshot through TEDAPI.")
     parser.add_argument("--host", required=True)
@@ -95,7 +172,15 @@ def main():
     parser.add_argument("--battery-export-limit", action="store_true")
     parser.add_argument("--export-lower-threshold", type=float, default=70)
     parser.add_argument("--export-upper-threshold", type=float, default=90)
+    parser.add_argument("--export-window-start", default="17:00")
+    parser.add_argument("--export-window-end", default="21:00")
+    parser.add_argument("--premium-controls", default="{}")
     args = parser.parse_args()
+    try:
+        controls = control_settings(json.loads(args.premium_controls))
+        premium_window(args.timezone or "Etc/UTC", args.export_window_start, args.export_window_end)
+    except (ValueError, KeyError, TypeError, AttributeError):
+        fail("Invalid export window or timezone; no connection attempted.")
     if (not valid_percentage(args.export_lower_threshold) or not valid_percentage(args.export_upper_threshold)
             or args.export_lower_threshold >= args.export_upper_threshold):
         fail("BatteryExportToGridLimit requires 0 <= lowerThreshold < upperThreshold <= 100.")
@@ -170,8 +255,10 @@ def main():
 
     export_status = None
     if args.transport == "v1r":
-        export_status = battery_export_limit(powerwall, percentage, args.battery_export_limit,
-                                             args.export_lower_threshold, args.export_upper_threshold)
+        export_status = scheduled_battery_control(
+            powerwall, percentage, args.battery_export_limit,
+            args.export_lower_threshold, args.export_upper_threshold,
+            premium_window(timezone, args.export_window_start, args.export_window_end), controls)
 
     output = {
         "source": "v1r" if args.transport == "v1r" else "tedapi",

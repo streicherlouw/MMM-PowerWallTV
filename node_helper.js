@@ -89,6 +89,15 @@ module.exports = NodeHelper.create({
         limit.lowerThreshold < 0 || limit.lowerThreshold >= limit.upperThreshold || limit.upperThreshold > 100) {
       throw new Error("BatteryExportToGridLimit requires active: true/false and 0 <= lowerThreshold < upperThreshold <= 100.");
     }
+    for (const [name, inside, outside, allowed] of [
+      ["gridExport", "battery_ok", "pv_only", ["battery_ok", "pv_only"]],
+      ["operationalMode", "autonomous", "self_consumption", ["autonomous", "self_consumption"]]
+    ]) {
+      limit[name] = Object.assign({ enabled: true, inside, outside }, limit[name] || {});
+      if (typeof limit[name].enabled !== "boolean" || !allowed.includes(limit[name].inside) || !allowed.includes(limit[name].outside)) {
+        throw new Error(`BatteryExportToGridLimit.${name} requires enabled: true/false and valid inside/outside settings.`);
+      }
+    }
     const local = Object.assign({
       gatewayIP: "demo",
       email: "",
@@ -215,7 +224,10 @@ module.exports = NodeHelper.create({
     }
     const limit = config.BatteryExportToGridLimit;
     args.push("--export-lower-threshold", String(limit.lowerThreshold),
-      "--export-upper-threshold", String(limit.upperThreshold));
+      "--export-upper-threshold", String(limit.upperThreshold),
+      "--export-window-start", config.GridExportWindow.start,
+      "--export-window-end", config.GridExportWindow.end,
+      "--premium-controls", JSON.stringify({ gridExport: limit.gridExport, operationalMode: limit.operationalMode }));
     if (limit.active) {
       args.push("--battery-export-limit");
     }

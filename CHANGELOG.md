@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-20 — Premium-window battery mode control
+
+- Make both levers independently configurable, with inside/outside targets.
+- Remove approximation prefixes from export totals and battery-share text, retaining estimate metadata.
+- Select savings mode during the configured export window, with existing charge hysteresis; select self-powered and solar-only export outside it.
+- Read and verify both settings, preserve reserve with mode-only writes, and report failures for retry on the next refresh.
+- Document timezone, restart, inactive-control and partial-write behavior; add schedule and mode-control regression tests.
+
 ## 2026-09-19 — OS-managed screen orientation
 
 - Document Raspberry Pi OS ownership of screen orientation and consistent desktop/login-screen profiles.

@@ -15,7 +15,7 @@ In v1r/TEDAPI mode, the upper-left summary displays these readings in matching f
 | `EXPORTED 5-9PM` | Energy sent to the grid during the configured daily window; the label follows its start/end times |
 | `FROM BATTERY` | Estimated battery share of window exports; shown from the window start until local midnight |
 
-Energy readings use kWh; the battery contribution uses %. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides the window reading and its battery-share heading/value, while daily totals remain visible.
+Energy readings use kWh; the battery contribution uses %. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated solar generation (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides the window reading and its battery-share heading/value, while daily totals remain visible.
 
 The display is separate from optional [BatteryExportToGridLimit](#batteryexporttogridlimit) control, which disables battery export below a lower charge threshold and re-enables it at an upper threshold. The [terminal script](#switch-automatic-export-control-on-or-off-from-the-terminal) switches that automation on or off by updating and reloading the MagicMirror config. Details and configuration are below; see [CHANGELOG.md](CHANGELOG.md) for release history.
 
@@ -37,7 +37,7 @@ npm ci
 npm test
 ```
 
-`npm test` runs the JavaScript syntax checks and 65 automated tests (45 JavaScript and 20 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
+`npm test` runs the JavaScript syntax checks and 72 automated tests (45 JavaScript and 27 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
 
 ## Powerwall 3 LAN Config — Option 5 (Recommended)
 
@@ -142,7 +142,7 @@ From the module directory:
   --timezone Australia/Melbourne --timeout 10
 ```
 
-Successful output is one JSON snapshot with `source: "v1r"` and `raw.tedapiMode: "v1r"`. It includes power flows, battery percentage/count, backup-time estimate, solar strings, aggregate meters and the current `gridExportMode`. The v1r battery percentage uses Tesla's app scale. The module is read-only by default; the optional `BatteryExportToGridLimit` feature below can change battery export permission. It never changes backup reserve or opens/closes the grid contactor.
+Successful output is one JSON snapshot with `source: "v1r"` and `raw.tedapiMode: "v1r"`. It includes power flows, battery percentage/count, backup-time estimate, solar strings, aggregate meters and the current `gridExportMode`. The v1r battery percentage uses Tesla's app scale. The module is read-only by default; the optional `BatteryExportToGridLimit` feature below can change battery export permission and operational mode. It never changes backup reserve or opens/closes the grid contactor.
 
 After updating `config.js`, restart MagicMirror using your existing service manager. No Tesla cloud credentials are needed for normal v1r reads. The bridge rejects a fallback connection when v1r was requested.
 
@@ -199,7 +199,7 @@ Missing keys, unverified keys, authentication errors or unavailable readings pro
 
 `EXPORTED TODAY` appears between `GENERATED TODAY` and the configured export-window reading in v1r/TEDAPI modes. It shows all energy exported to the grid since local midnight in kWh, including both solar and battery exports. It uses `site.energy_exported`; imports are not subtracted and solar production is not substituted.
 
-The daily total is independent of the tariff window and remains visible when `GridExportWindow.show` is false. It uses `tedapi.timezone` (or the host timezone), resets at local midnight, and persists in the existing aggregate-history file across restarts. Existing hourly meter history seeds the first total after upgrading. A saved reading within five minutes before midnight can serve as an approximate baseline (`≈`); a short polling interval across midnight is interpolated. Missing baselines or meter resets are marked `(PARTIAL)`. Missing grid counters show `— kWh`. No new configuration or credentials are required.
+The daily total is independent of the tariff window and remains visible when `GridExportWindow.show` is false. It uses `tedapi.timezone` (or the host timezone), resets at local midnight, and persists in the existing aggregate-history file across restarts. Existing hourly meter history seeds the first total after upgrading. A saved reading within five minutes before midnight can serve as an approximate baseline (tracked internally); a short polling interval across midnight is interpolated. Missing baselines or meter resets are marked `(PARTIAL)`. Missing grid counters show `— kWh`. No new configuration or credentials are required.
 
 ## Grid export window display
 
@@ -219,13 +219,13 @@ These are the defaults. Use 24-hour `HH:mm` values; the label follows the config
 
 The window follows `tedapi.timezone`, including daylight saving time, or the host timezone if unset. The value starts at zero each local calendar day, accumulates during the window, and remains visible after the window closes until midnight. Its state is saved with the existing aggregate history, so restarting MagicMirror retains the count. Changing the window recalculates what can be recovered from saved meter history.
 
-Polling rarely lands exactly on a boundary. A boundary crossed within five minutes is interpolated and shown with `≈` if energy is apportioned. Longer gaps across a boundary, counter resets, or starting without the necessary history show `(PARTIAL)`; unassignable energy is excluded. Gaps wholly inside the window are recovered from cumulative meter differences. Missing or invalid grid counters display `— kWh` and do not count imports or substitute solar power. Historical hourly readings can recover some of the first day's total, but cannot reconstruct missing boundary readings exactly.
+Polling rarely lands exactly on a boundary. A boundary crossed within five minutes is interpolated and recorded as estimated internally if energy is apportioned. Longer gaps across a boundary, counter resets, or starting without the necessary history show `(PARTIAL)`; unassignable energy is excluded. Gaps wholly inside the window are recovered from cumulative meter differences. Missing or invalid grid counters display `— kWh` and do not count imports or substitute solar power. Historical hourly readings can recover some of the first day's total, but cannot reconstruct missing boundary readings exactly.
 
 Update the module files and restart MagicMirror to enable the default display. No additional Powerwall credentials or RSA registration are required. This is a read-only display feature and does not change `BatteryExportToGridLimit` or any Powerwall setting.
 
 ### Battery contribution to window exports
 
-`FROM BATTERY` below the export-window total shows an **estimated percentage of exported energy** supplied by the battery during that same configured window. It is not battery state of charge. It counts the same `GridExportWindow.start`/`end` interval. Its heading and number are shown only from the configured start (inclusive) until local midnight (exclusive), including after the window ends; both are hidden before the start. Visibility follows the gateway site timezone supplied by the server, including daylight saving time, and updates on display refresh. It is also hidden when `GridExportWindow.show` is false. The `≈` prefix still identifies the percentage as an estimate.
+`FROM BATTERY` below the export-window total shows an **estimated percentage of exported energy** supplied by the battery during that same configured window. It is not battery state of charge. It counts the same `GridExportWindow.start`/`end` interval. Its heading and number are shown only from the configured start (inclusive) until local midnight (exclusive), including after the window ends; both are hidden before the start. Visibility follows the gateway site timezone supplied by the server, including daylight saving time, and updates on display refresh. It is also hidden when `GridExportWindow.show` is false. The percentage remains an estimate, displayed without an approximation prefix.
 
 With the default 17:00–21:00 window, the display behaves as follows (all times are local):
 
@@ -240,7 +240,7 @@ Changing `GridExportWindow.start` moves the battery row's appearance time. Chang
 
 The grid meter cannot identify the origin of exported energy. The estimate allocates exports proportionally to concurrent solar generation and positive battery discharge: `battery discharge / (solar generation + battery discharge)`. This assumes solar and batteries supply the home and grid in the same proportions. For example, 3 kW solar plus 1 kW battery discharge attributes 25% of concurrent exports to the battery. Charging contributes zero. This is an allocation estimate, not a separately metered battery-to-grid measurement.
 
-The module averages sampled source fractions over each short polling interval, clips intervals at the configured window boundaries, and weights the fractions by grid-exported Wh. It persists estimated battery-export Wh alongside total exported Wh across restarts; the displayed percentage is their ratio, never an unweighted average of instantaneous percentages. Values are bounded to 0–100% and marked `≈`.
+The module averages sampled source fractions over each short polling interval, clips intervals at the configured window boundaries, and weights the fractions by grid-exported Wh. It persists estimated battery-export Wh alongside total exported Wh across restarts; the displayed percentage is their ratio, never an unweighted average of instantaneous percentages. Values are bounded to 0–100%; no approximation prefix is displayed.
 
 Before any export, the reading is `— %` because there is no energy to divide by. Missing power data, gaps longer than five minutes, or older saved exports without attribution leave the percentage unavailable and mark it `(PARTIAL)` rather than treating unknown exports as solar-only. The kWh total remains available. Historical hourly readings cannot reconstruct battery contribution reliably; normal attribution starts with fresh polling samples. At local midnight, the next day's counters start over. This display does not change the battery export-control policy.
 
@@ -252,17 +252,19 @@ Before the configured start, the entire row is deliberately hidden, including an
 
 ## BatteryExportToGridLimit
 
-Option 5 can automatically allow or disable **battery** export according to state of charge. The feature is inactive by default. Add this top-level block inside the module's `config` to activate it:
+Option 5 controls both **battery export permission** and **operational mode**. During `GridExportWindow.start`–`end` (default 17:00–21:00), it selects savings / time-based control (`autonomous`) and applies the charge thresholds below. Outside that window it selects self-powered (`self_consumption`) and `pv_only`. The schedule uses `tedapi.timezone` (host timezone by default), including daylight saving, and runs even if `GridExportWindow.show` is false. The feature is inactive by default. Add this top-level block inside the module's `config` to activate it:
 
 ```js
 BatteryExportToGridLimit: {
   active: true,
   lowerThreshold: 70,
-  upperThreshold: 90
+  upperThreshold: 90,
+  gridExport: { enabled: true, inside: "battery_ok", outside: "pv_only" },
+  operationalMode: { enabled: true, inside: "autonomous", outside: "self_consumption" }
 },
 ```
 
-| Charge (Tesla-app percentage) | Action when active |
+| Charge (Tesla-app percentage) | Action inside the premium window when active |
 | --- | --- |
 | Below `lowerThreshold` (e.g. less than 70%) | Set `pv_only`: stop battery export while permitting solar export |
 | From `lowerThreshold` up to, but below, `upperThreshold` (70% to less than 90%) | Retain the gateway's existing export setting |
@@ -270,11 +272,11 @@ BatteryExportToGridLimit: {
 
 For example, export enabled at 95% remains enabled through 80% and exactly 70%, then switches off below 70%. It stays off as the battery charges through 80%, and switches on again at 90%. The gateway setting stores the on/off state, so restarting MagicMirror in the middle band does not accidentally re-enable export. On first activation at 80%, an existing `pv_only` setting stays off until 90%; an existing `battery_ok` setting stays on until below 70%. Manual changes in that middle band are retained.
 
-Every successful v1r battery refresh reads the current export setting, even while this feature is inactive. When active, the module sends a write only if a threshold requires a different setting, then reads the setting back to confirm it. Overlapping identical requests share one read/control cycle. No write is sent if charge or the current export setting is unavailable. Failed or unconfirmed control writes leave telemetry visible with a status message and are reconsidered on the next refresh.
+Every successful v1r battery refresh reads the current export setting, even while this feature is inactive. When active, the module sends a write only if the schedule or a threshold requires a different setting, then reads the setting back to confirm it. Overlapping identical requests share one read/control cycle. No write is sent if charge or the current export setting is unavailable. Failed or unconfirmed control writes leave telemetry visible with a status message and are reconsidered on the next refresh.
 
 The site-wide `never` rule prohibits solar export too, so this feature preserves it and reports that automation is blocked. Use `pv_only` as the starting rule when you want this feature to manage battery export. Allowing battery export grants permission; Tesla's operating mode, backup reserve and site limits still determine actual power flow.
 
-Set `active: false` to stop automatic changes. This leaves the current gateway export permission unchanged. Both thresholds must be numbers with `0 <= lowerThreshold < upperThreshold <= 100`. Active control requires option 5 and a registered RSA key; it is not supported in demo, local JSON, Wi-Fi TEDAPI or Fleet mode.
+Set `active: false` to stop automatic changes. This leaves both current gateway settings unchanged. Both thresholds must be numbers with `0 <= lowerThreshold < upperThreshold <= 100`. Active control requires option 5 and a registered RSA key; it is not supported in demo, local JSON, Wi-Fi TEDAPI or Fleet mode.
 
 ### Switch automatic export control on or off from the terminal
 
@@ -305,7 +307,7 @@ ssh pi@homescreen.local 'node ~/MagicMirror/modules/MMM-PowerWallTV/scripts/batt
 ssh pi@homescreen.local 'node ~/MagicMirror/modules/MMM-PowerWallTV/scripts/battery-export-limit.js off'
 ```
 
-Turning the feature **off** stops automatic control after reload; it does **not** change the Powerwall's current export permission. Turning it **on** resumes the configured charge-threshold policy on the next successful refresh.
+Turning the feature **off** stops automatic control after reload; it does **not** change the Powerwall's current export permission or operational mode. Turning it **on** resumes the configured charge-threshold policy on the next successful refresh.
 
 The snapshot contains `gridExportMode` plus `batteryExportToGridLimit` with the charge percentage, thresholds, setting before/after, action (`inactive`, `unchanged`, `enabled`, `disabled`, `blocked` or `error`) and any error. The decision uses the latest successful polling sample, so a stopped module or unavailable gateway cannot enforce thresholds until polling resumes.
 
@@ -527,3 +529,17 @@ On the tested Raspberry Pi OS labwc setup, keep the desktop profile (`~/.config/
 Powerwall Gateway certificates are usually self-signed, so `rejectUnauthorized: false` is the practical default for local mode. Keep your MagicMirror `config.js` and `.pwtv-fleet-tokens.json` private because they contain Gateway credentials or Fleet API tokens.
 
 Visual assets are from the MIT-licensed Powerwall-TV project; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### Premium-window mode control
+
+On each successful refresh, the controller reads both export permission and operational mode, writes only required changes, and verifies each write. Export permission is updated before operational mode. An unconfirmed write is reported and retried on the next poll; the two writes are not atomic. Unknown/unavailable modes and `backup` mode prevent automatic changes. The site-wide `never` export rule is preserved.
+
+Outside the window, `pv_only` resets the export hysteresis: the next window needs 90% (or the configured upper threshold) to enable battery export. Savings mode remains selected throughout the window even when the lower threshold stops battery export. Backup reserve and grid-charging permission are not changed. Savings mode uses the tariff already configured in Tesla; export permission does not guarantee a particular export rate.
+
+Window transitions occur on the next successful polling refresh, not an independent clock timer. If MagicMirror stops, the last settings remain until polling resumes. Disabling automation stops both controls without restoring a mode. The existing terminal on/off script controls both levers.
+
+The helper accepts `--export-window-start 17:00 --export-window-end 21:00` with `--timezone Australia/Melbourne`. Snapshot control status includes `inPremiumWindow`, `operationalModeBefore`, `operationalMode`, `operationalModeTarget`, and `modeAction` when a mode decision completes. Mode writes use a partial `/api/operation` payload to avoid older pyPowerwall versions also rewriting backup reserve.
+
+Each lever has its own `enabled` flag and `inside`/`outside` target in `BatteryExportToGridLimit`. Setting `gridExport.enabled: false` leaves export permission untouched; setting `operationalMode.enabled: false` leaves operational mode untouched. `active: false` disables both. Export targets accept `battery_ok` or `pv_only`; whenever the target is `battery_ok`, the 70%/90% hysteresis still applies. Operational targets accept `autonomous` (savings) or `self_consumption` (self-powered). Defaults are shown above; reverse or equal targets are supported. The shared schedule is `GridExportWindow.start`/`end`.
+
+`EXPORTED TODAY`, the premium-window export total, and `FROM BATTERY` display numbers without an approximation prefix. Estimates are still tracked internally; battery attribution remains an estimate, and unavailable readings still show a dash. The solar generation estimate indicator is unchanged.

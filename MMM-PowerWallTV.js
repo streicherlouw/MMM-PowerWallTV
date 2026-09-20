@@ -366,7 +366,7 @@ Module.register("MMM-PowerWallTV", {
       block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
         "EXPORTED TODAY" + (reading && reading.partial ? " (PARTIAL)" : "")));
       const value = reading && Number.isFinite(reading.energyWh)
-        ? `${reading.estimated ? "≈ " : ""}${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
+        ? `${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
       block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
       summary.appendChild(block);
     }
@@ -379,7 +379,7 @@ Module.register("MMM-PowerWallTV", {
       block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
         label + (reading && reading.partial ? " (PARTIAL)" : "")));
       const value = reading && Number.isFinite(reading.energyWh)
-        ? `${reading.estimated ? "≈ " : ""}${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
+        ? `${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
       block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
       summary.appendChild(block);
       if (this.batteryShareVisible(exportWindow.start, snapshot.timeZone)) {
@@ -387,7 +387,7 @@ Module.register("MMM-PowerWallTV", {
         battery.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
           "FROM BATTERY" + (reading && reading.batterySharePartial ? " (PARTIAL)" : "")));
         const percent = reading && Number.isFinite(reading.batteryPercent)
-          ? `≈ ${this.formatNumber(reading.batteryPercent)}%` : "— %";
+          ? `${this.formatNumber(reading.batteryPercent)}%` : "— %";
         battery.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", percent));
         summary.appendChild(battery);
       }

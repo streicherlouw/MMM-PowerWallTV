@@ -22,6 +22,7 @@ class FetchTests(unittest.TestCase):
             name: {"instant_power": value, "energy_exported": 12345}
             for name, value in {"solar": 5000, "load": 600, "battery": -100, "site": -4300}.items()
         }
+        self.pw.get_mode.return_value = "autonomous"
         self.pw.level.return_value = 100.0
         self.pw.strings.return_value = {"A": {"Power": 1000}}
         self.pw.battery_blocks.return_value = {"primary": {}, "expansion": {}}
@@ -125,7 +126,8 @@ class FetchTests(unittest.TestCase):
         self.pw.client.get_grid_export.side_effect = ["pv_only", "battery_ok"]
         with tempfile.NamedTemporaryFile() as key:
             code, out, err = self.run_script(["--transport", "v1r", "--rsa-key-path", key.name,
-                                              "--battery-export-limit"])
+                                              "--battery-export-limit", "--export-window-start", "00:00",
+                                              "--export-window-end", "24:00"])
         self.assertEqual(code, 0, err)
         self.pw.set_grid_export.assert_called_once_with("battery_ok")
         self.assertEqual(json.loads(out)["batteryExportToGridLimit"]["action"], "enabled")
@@ -210,6 +212,90 @@ class ExportLimitTests(unittest.TestCase):
         self.assertEqual(result["action"], "disabled")
         self.pw.set_grid_export.assert_called_once_with("pv_only")
 
+
+
+class ScheduledControlTests(unittest.TestCase):
+    def setUp(self):
+        helpers = runpy.run_path(str(SCRIPT))
+        self.control = helpers["scheduled_battery_control"]
+        self.window = helpers["premium_window"]
+        self.pw = Mock()
+        self.state = {"export": "pv_only", "mode": "self_consumption"}
+        self.pw.client.get_grid_export.side_effect = lambda **kw: self.state["export"]
+        self.pw.get_mode.side_effect = lambda **kw: self.state["mode"]
+        self.pw.set_grid_export.side_effect = lambda value: self.state.update(export=value)
+        self.pw.post.side_effect = lambda **kw: self.state.update(mode=kw["payload"]["real_mode"])
+
+    def test_day_cycle_and_thresholds(self):
+        for inside, charge, export, mode in [
+            (False, 100, "pv_only", "self_consumption"),
+            (True, 95, "battery_ok", "autonomous"),
+            (True, 70, "battery_ok", "autonomous"),
+            (True, 69, "pv_only", "autonomous"),
+            (True, 80, "pv_only", "autonomous"),
+            (True, 90, "battery_ok", "autonomous"),
+            (False, 95, "pv_only", "self_consumption"),
+            (True, 80, "pv_only", "autonomous")]:
+            result = self.control(self.pw, charge, True, 70, 90, inside)
+            self.assertNotEqual(result["action"], "error")
+            self.assertEqual(self.state, {"export": export, "mode": mode})
+        for call in self.pw.post.call_args_list:
+            self.assertEqual(set(call.kwargs["payload"]), {"real_mode"})
+
+    def test_inactive_and_blocked_never_write_modes(self):
+        self.control(self.pw, 100, False, 70, 90, True)
+        self.state["export"] = "never"
+        self.control(self.pw, 100, True, 70, 90, True)
+        self.pw.post.assert_not_called()
+        self.pw.set_grid_export.assert_not_called()
+
+    def test_unknown_mode_and_invalid_charge_prevent_writes(self):
+        for mode in (None, "backup"):
+            self.state["mode"] = mode
+            self.assertEqual(self.control(self.pw, 100, True, 70, 90, True)["action"], "error")
+        self.state["mode"] = "self_consumption"
+        self.control(self.pw, None, True, 70, 90, True)
+        self.pw.post.assert_not_called()
+        self.pw.set_grid_export.assert_not_called()
+
+    def test_unconfirmed_mode_retries_next_poll(self):
+        self.pw.post.side_effect = None
+        self.assertEqual(self.control(self.pw, 100, True, 70, 90, True)["action"], "error")
+        self.pw.post.side_effect = lambda **kw: self.state.update(mode=kw["payload"]["real_mode"])
+        self.assertNotEqual(self.control(self.pw, 100, True, 70, 90, True)["action"], "error")
+        self.assertEqual(self.state["mode"], "autonomous")
+
+    def test_window_boundaries_timezone_and_dst(self):
+        from datetime import datetime
+        for stamp, expected in [("2026-09-20T06:59:59+00:00", False),
+                                ("2026-09-20T07:00:00+00:00", True),
+                                ("2026-09-20T11:00:00+00:00", False),
+                                ("2026-10-04T06:00:00+00:00", True)]:
+            self.assertEqual(self.window("Australia/Melbourne", now=datetime.fromisoformat(stamp)), expected)
+        self.assertTrue(self.window("UTC", "00:00", "24:00"))
+        for start, end in [("21:00", "17:00"), ("bad", "21:00")]:
+            with self.assertRaises(ValueError):
+                self.window("UTC", start, end)
+
+
+    def test_independent_levers_and_custom_targets(self):
+        self.control(self.pw, 100, True, 70, 90, True, {
+            "gridExport": {"enabled": False}, "operationalMode": {"inside": "self_consumption"}})
+        self.pw.set_grid_export.assert_not_called()
+        self.pw.post.assert_not_called()
+        self.state["mode"] = "backup"
+        self.control(self.pw, 100, True, 70, 90, False, {
+            "gridExport": {"outside": "battery_ok"}, "operationalMode": {"enabled": False}})
+        self.assertEqual(self.state["export"], "battery_ok")
+        self.pw.post.assert_not_called()
+
+    def test_invalid_control_targets(self):
+        for options in ({"gridExport": {"inside": "invalid"}},
+                        {"operationalMode": {"enabled": "yes"}}):
+            with self.assertRaises(ValueError):
+                self.control(self.pw, 100, True, 70, 90, True, options)
+        self.pw.post.assert_not_called()
+        self.pw.set_grid_export.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

@@ -247,14 +247,14 @@ test("export window uses existing summary fonts, follows its label settings and 
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   assert.equal(dom.children[2].children[1].className, dom.children[0].children[1].className);
   assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY");
-  assert.equal(dom.children[3].children[1].textContent, "≈ 37.5%");
+  assert.equal(dom.children[3].children[1].textContent, "37.5%");
   assert.equal(dom.children[3].children[1].className, dom.children[2].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
   snapshot.gridExportWindow.partial = true;
   snapshot.gridExportWindow.estimated = true;
   dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children[2].children[0].textContent, "EXPORTED 4:30-8:15PM (PARTIAL)");
-  assert.equal(dom.children[2].children[1].textContent, "≈ 12.5 kWh");
+  assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   snapshot.gridExportWindow.batterySharePartial = true;
   snapshot.gridExportWindow.batteryPercent = null;
   dom = frontend.renderSummary(snapshot);
@@ -321,5 +321,5 @@ test("outside battery display hours both heading and percentage disappear but en
   dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children.length, 4);
   assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY");
-  assert.equal(dom.children[3].children[1].textContent, "≈ 40.0%");
+  assert.equal(dom.children[3].children[1].textContent, "40.0%");
 });
