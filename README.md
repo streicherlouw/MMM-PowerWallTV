@@ -37,7 +37,7 @@ npm ci
 npm test
 ```
 
-`npm test` runs the JavaScript syntax checks and 72 automated tests (45 JavaScript and 27 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
+`npm test` runs the JavaScript syntax checks and 75 automated tests (48 JavaScript and 27 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
 
 ## Powerwall 3 LAN Config — Option 5 (Recommended)
 
@@ -555,3 +555,9 @@ On the tested Raspberry Pi OS labwc setup, keep the desktop profile (`~/.config/
 Powerwall Gateway certificates are usually self-signed, so `rejectUnauthorized: false` is the practical default for local mode. Keep your MagicMirror `config.js` and `.pwtv-fleet-tokens.json` private because they contain Gateway credentials or Fleet API tokens.
 
 Visual assets are from the MIT-licensed Powerwall-TV project; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### Export-counter recovery
+
+Daily and premium-window export totals reject decreases and implausible jumps in the cumulative grid-export counter. A temporary zero cannot become a new baseline followed by a lifetime-sized export increment. Two successive readings consistent with a new counter range confirm a reset; only the increment between them is counted, and the total remains partial. The plausibility guard permits up to 100 kW averaged over the elapsed interval, plus 1 kWh tolerance, for this residential dashboard.
+
+On the first refresh after this fix, older export accumulators are rebuilt from retained hourly meter readings. A sample within five minutes before midnight can recover the daily baseline as an estimate. Missing boundary data remains partial; if no useful history remains, tracking starts from the next valid sample. Historical battery attribution may be unavailable after reconstruction. Solar generation history and battery-control settings are unchanged.

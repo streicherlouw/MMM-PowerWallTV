@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-20 — Repair inflated daily grid exports
+
+- Reject temporary counter drops and implausible jumps instead of adding a lifetime counter to daily exports.
+- Confirm new counter ranges before rebasing and preserve partial-data reporting.
+- Rebuild old daily/window accumulators from retained meter history to repair persisted corruption.
+- Add regression tests for transient zeros, repeated zeros, upward spikes and recovery of the observed inflated daily total.
+
 ## 2026-09-20 — Configurable-control documentation refresh
 
 - Consolidate premium-window behavior beside the controller configuration.

@@ -215,8 +215,9 @@ test("missing flows or long gaps keep exports but do not fabricate battery attri
   }
 });
 
-test("upgrading existing totals cannot claim that later battery share covers the whole window", () => {
+test("persisted totals without attribution cannot claim later share covers the whole window", () => {
   const site = { gridExportWindow: {
+    counterGuardVersion: 1,
     signature: "17:00|21:00|Australia/Melbourne", date: "2026-09-18", totalWh: 500,
     partial: false, estimated: false, sample: { at: Date.parse("2026-09-18T18:00:00+10:00"),
       counter: 1500, date: "2026-09-18", seconds: 64800 }
@@ -227,4 +228,39 @@ test("upgrading existing totals cannot claim that later battery share covers the
   assert.equal(result.energyWh, 600);
   assert.equal(result.batteryPercent, null);
   assert.equal(result.batterySharePartial, true);
+});
+
+
+test("transient zero cannot turn a lifetime counter into daily exports", () => {
+  const read = tracker({ start: "00:00", end: "24:00" });
+  read(1360000, "2026-09-20T00:00:00+10:00");
+  read(1360100, "2026-09-20T10:00:00+10:00");
+  read(0, "2026-09-20T10:00:10+10:00");
+  assert.equal(read(1360120, "2026-09-20T10:00:20+10:00").energyWh, 120);
+});
+
+test("repeated zero and upward glitches never contribute their discontinuity", () => {
+  const read = tracker();
+  read(1360000, "2026-09-20T17:00:00+10:00");
+  read(0, "2026-09-20T17:00:10+10:00");
+  read(0, "2026-09-20T17:00:20+10:00");
+  read(1360100, "2026-09-20T17:00:30+10:00");
+  assert.equal(read(1360120, "2026-09-20T17:00:40+10:00").energyWh, 20);
+  read(9999999, "2026-09-20T17:00:50+10:00");
+  assert.equal(read(1360140, "2026-09-20T17:01:00+10:00").energyWh, 40);
+});
+
+test("upgrade rebuilds corrupted daily state from hourly meter history", () => {
+  const site = { gridExportToday: { signature: "00:00|24:00|Australia/Melbourne",
+    date: "2026-09-20", totalWh: 2774334, partial: true }, readings: [
+    { observedAt: "2026-09-19T23:59:53+10:00", aggregates: { site: { energy_exported: 1360058 } } },
+    { observedAt: "2026-09-20T00:59:44+10:00", aggregates: { site: { energy_exported: 1360064 } } },
+    { observedAt: "2026-09-20T15:59:47+10:00", aggregates: { site: { energy_exported: 1386937 } } }
+  ] };
+  const daily = { start: "00:00", end: "24:00" };
+  const result = update(site, { site: { energy_exported: 1387108 } }, daily,
+    new Date("2026-09-20T16:01:53+10:00"), zone, "gridExportToday");
+  assert.equal(result.energyWh, 27050);
+  assert.equal(result.partial, false);
+  assert.equal(site.gridExportToday.counterGuardVersion, 1);
 });
