@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Predicted battery energy addition
+
+- Show the expected net energy change by 5PM beside stored battery energy.
+- Use the same starting charge and projection as the forecast dot, with signed gains/losses.
+
 ## 2026-10-03 — Balanced panel padding
 
 - Add 20px of bottom padding without shifting meters relative to the house.

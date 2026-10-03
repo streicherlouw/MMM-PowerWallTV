@@ -892,13 +892,24 @@ Module.register("MMM-PowerWallTV", {
   },
 
   batteryEnergyLabel(snapshot) {
-    // Match the nominal 13.5 kWh per Powerwall capacity previously shown in the caption.
-    const capacityKwh = Number(snapshot.batteryCount) * 13.5;
-    const percentage = snapshot.batteryPercentage;
+    const prediction = snapshot.exportPrediction;
+    const predicted = prediction?.available &&
+      [prediction.capacityKwh, prediction.currentPercent, prediction.projectedPercent].every(Number.isFinite) &&
+      prediction.capacityKwh > 0;
+    const capacityKwh = predicted ? prediction.capacityKwh : Number(snapshot.batteryCount) * 13.5;
+    const percentage = predicted ? prediction.currentPercent : snapshot.batteryPercentage;
     if (!Number.isFinite(capacityKwh) || capacityKwh <= 0 ||
         !Number.isFinite(percentage)) return "";
     const storedKwh = capacityKwh * Math.max(0, Math.min(100, percentage)) / 100;
-    return `${this.formatNumber(storedKwh, 1)} OF ${this.formatNumber(capacityKwh, Number.isInteger(capacityKwh) ? 0 : 1)}kWh`;
+    let additional = "";
+    if (predicted) {
+      // Round the two displayed totals first, so their displayed difference adds up exactly.
+      const currentTenths = Math.round(storedKwh * 10);
+      const targetTenths = Math.round(capacityKwh * prediction.projectedPercent / 10);
+      const change = (targetTenths - currentTenths) / 10;
+      additional = ` (${change >= 0 ? "+" : "−"}${this.formatNumber(Math.abs(change), 1)})`;
+    }
+    return `${this.formatNumber(storedKwh, 1)}${additional} of ${this.formatNumber(capacityKwh, Number.isInteger(capacityKwh) ? 0 : 1)}kWh`;
   },
 
   batteryShareVisible(start, timeZone, now = new Date()) {
