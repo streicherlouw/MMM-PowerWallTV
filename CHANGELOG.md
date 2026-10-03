@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Align meters with artwork
+
+- Raise solar and home meters so connector lines meet the gap between numbers and captions.
+- Lower battery and grid meters together to align with the battery connector.
+
 ## 2026-10-03 — Shorter display labels
 
 - Shorten the export-window heading to its hours, such as 5-9PM.

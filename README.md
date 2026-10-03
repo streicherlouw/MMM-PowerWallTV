@@ -567,6 +567,8 @@ The address cache is atomically written with private permissions; a process lock
 
 On first verified recovery, history under the configured bootstrap IP/site/timezone is migrated intact to a DIN/timezone key. Subsequent address changes reuse that history. Preserve the old `gatewayIP` while enabling this migration, and back up the history first. Outage gaps still follow the existing partial/estimated energy rules. Do not share a discovery cache between different gateways. Disabling discovery returns to the configured address; it does not rewrite the cache or reverse history migration.
 
+The main solar and home meters sit with their number-to-caption gap level with the house artwork’s connector lines. Battery and grid meters share the lower baseline, with the same gap aligned to the battery connector.
+
 ## Forecast export feedback
 
 Set top-level `exportFeedbackPath` to the Homebridge controller's private `powerwall-forecast-<site-hash>.json.status.json` file. MagicMirror and Homebridge must share readable local storage (the HomeScreen installation runs both as the same user). No credentials are included in the status file.

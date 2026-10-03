@@ -197,7 +197,7 @@
   left: auto;
   right: 5%;
   text-align: right;
-  top: 16%;
+  top: 12.3%;
   transform: translate(0, -50%) scale(1.2);
   transform-origin: right center;
 }
@@ -248,7 +248,7 @@
   left: auto;
   right: 5%;
   text-align: right;
-  top: 38%;
+  top: 34.8%;
   transform: translate(0, -50%) scale(1.2);
   transform-origin: right center;
 }
@@ -258,7 +258,7 @@
 }
 
 .pwtv-metric-battery {
-  bottom: 8%;
+  bottom: 3%;
   left: 5%;
   text-align: left;
   top: auto;
@@ -271,7 +271,7 @@
 }
 
 .pwtv-metric-grid {
-  bottom: 8%;
+  bottom: 3%;
   left: auto;
   right: 5%;
   text-align: right;
@@ -411,7 +411,7 @@
 }
 .pwtv-feedback-heading { font: inherit; color: #e4e4e4; line-height: inherit; }
 .pwtv-feedback-detail { margin-top: 4px; font-size: clamp(14px, 1.8cqw, 20px); color: #aaa; line-height: 1.35; }
-.pwtv-feedback-layout .pwtv-metric-battery { bottom: 8%; }
+.pwtv-feedback-layout .pwtv-metric-battery { bottom: 3%; }
 .pwtv-battery-energy {
   color: rgba(255, 255, 255, 0.9);
   font-variant-numeric: tabular-nums;
