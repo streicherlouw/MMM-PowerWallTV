@@ -2,12 +2,15 @@
   --pwtv-width: 1050px;
   --pwtv-max-width: 1050px;
   --pwtv-radius: 18px;
+  --pwtv-bottom-padding: 20px;
   --pwtv-scale: 1;
   --pwtv-x: 0px;
   --pwtv-y: 0px;
   --pwtv-image-scale: 1.2;
   --pwtv-image-x: -2%;
   --pwtv-image-y: 3%;
+  background: #161718;
+  padding-bottom: var(--pwtv-bottom-padding);
   border-radius: var(--pwtv-radius);
   box-sizing: border-box;
   container-type: inline-size;

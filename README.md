@@ -608,3 +608,15 @@ When using Homebridge as the export authority, set `BatteryExportToGridLimit.act
 Alternate IP addresses are accepted as the same device only when authenticated DIN and TLS certificate fingerprint both match.
 
 The display omits `(PARTIAL)` from all energy headings, including after restarts. Incomplete-history flags and energy calculations are preserved internally.
+
+### Bottom spacing
+
+The main panel adds 20px below the scene so the bottom meters have similar breathing room to the top meters. The artwork and meter alignment stay fixed. Override `--pwtv-bottom-padding` on `.pwtv` to change this.
+
+On HomeScreen, the gap before the solar forecast module is reduced by the same 20px, preserving the positions of the modules below it. The deployment's `css/custom.css` uses:
+
+```css
+.region.bottom.bar > .container > .module.MMM-SolarIrradianceForecast {
+  margin-top: calc(clamp(34px, 2.1vh, 46px) - 20px) !important;
+}
+```

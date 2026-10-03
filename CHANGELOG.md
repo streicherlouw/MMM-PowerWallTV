@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Balanced panel padding
+
+- Add 20px of bottom padding without shifting meters relative to the house.
+- Compensate with a smaller HomeScreen gap before the solar forecast module.
+
 ## 2026-10-03 — Align meters with artwork
 
 - Raise solar and home meters so connector lines meet the gap between numbers and captions.
