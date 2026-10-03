@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Compact meter status
+
+- Move stored energy beside BATTERY and capitalize OF.
+- Show confirmed battery export permission in uppercase to the left of GRID.
+
 ## 2026-10-03 — Two-line forecast and battery label
 
 - Place forecast and export status on separate right-aligned lines above the grid meter.

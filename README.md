@@ -571,23 +571,9 @@ On first verified recovery, history under the configured bootstrap IP/site/timez
 
 Set top-level `exportFeedbackPath` to the Homebridge controller's private `powerwall-forecast-<site-hash>.json.status.json` file. MagicMirror and Homebridge must share readable local storage (the HomeScreen installation runs both as the same user). No credentials are included in the status file.
 
-A short message on two right-aligned lines above the grid meter inside the main panel describes the forecast and export state:
+A compact uppercase caption to the left of `GRID` shows the current confirmed setting: `BATTERY EXPORT ENABLED` for `battery_ok`, or `NO BATTERY EXPORT` for `pv_only` / `never`. Missing, stale (over three minutes), failed, or unrecognized readings show `EXPORT STATUS UNKNOWN`. The caption describes permission to export battery energy, not instantaneous power flow or a future plan.
 
-| Situation | Message |
-| --- | --- |
-| High forecast, before 5PM | High solar forecast · Battery export planned |
-| High forecast, waiting for charge | High solar forecast · Waiting for charge above 90% |
-| Confirmed battery export | High solar forecast · Battery export enabled |
-| Charge at/below cutoff | Battery export paused · Waiting for charge above 90% |
-| Low forecast | Low solar forecast · Battery export disabled |
-| After 9PM | Export window ended · Battery export disabled |
-| Missing forecast | Solar forecast unavailable · Using charge limits |
-| Controller disabled | Automatic export control off |
-| Stale or unconfirmed status | Powerwall unavailable · Export status unconfirmed |
-
-Charge thresholds in the messages follow the controller settings. Forecast classification uses the unrounded forecast and controller threshold. Status older than three minutes, failed readbacks, missing files, or contradictory export status show the unconfirmed message. “Enabled” requires confirmed battery export during the window. These messages describe battery export; “disabled” does not necessarily mean solar export is disabled.
-
-The battery reading has a `BATTERY` caption beneath it, matching the `GRID` caption, and stored-energy text above it in the same font as the solar-string readings (for example, `50% 13.5 of 27kWh`). Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
+The battery caption reads `BATTERY`, with stored energy beside it (for example, `13.5 OF 27kWh`). Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 
 
 When using Homebridge as the export authority, set `BatteryExportToGridLimit.active: false` in MagicMirror. Enable `forecastExport.manageOperatingMode: true` in Homebridge to select savings for battery export and self-powered otherwise. The Homebridge rules, including strict >90% activation and ≤65% cutoff, drive the display. Homebridge currently uses the fixed 5–9PM schedule; MagicMirror's display-window configuration does not change that controller's schedule.

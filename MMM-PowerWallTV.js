@@ -350,7 +350,7 @@ Module.register("MMM-PowerWallTV", {
     const strip = this.el("div", "pwtv-feedback");
     let message = snapshot && snapshot.exportFeedback;
     if ((this.infoMessage && this.infoMessage.startsWith("Powerwall data delayed")) || this.errorMessage || (snapshot && snapshot.errorMessage)) {
-      message = { heading: "Powerwall unavailable · Export status unconfirmed", detail: "" };
+      message = { heading: "EXPORT STATUS UNKNOWN", detail: "" };
     }
     if (!message) { strip.style && (strip.style.display = "none"); return strip; }
     const [heading, ...status] = message.heading.split(" · ");
@@ -884,7 +884,7 @@ Module.register("MMM-PowerWallTV", {
     if (!Number.isFinite(capacityKwh) || capacityKwh <= 0 ||
         !Number.isFinite(percentage)) return "";
     const storedKwh = capacityKwh * Math.max(0, Math.min(100, percentage)) / 100;
-    return `${this.formatNumber(storedKwh, 1)} of ${this.formatNumber(capacityKwh, Number.isInteger(capacityKwh) ? 0 : 1)}kWh`;
+    return `${this.formatNumber(storedKwh, 1)} OF ${this.formatNumber(capacityKwh, Number.isInteger(capacityKwh) ? 0 : 1)}kWh`;
   },
 
   batteryShareVisible(start, timeZone, now = new Date()) {

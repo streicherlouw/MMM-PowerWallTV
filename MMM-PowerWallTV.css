@@ -401,22 +401,22 @@
   }
 }
 
-/* Two right-aligned forecast lines above the grid meter. */
+/* Compact export setting immediately left of the GRID caption. */
 .pwtv-feedback {
   position: absolute;
-  bottom: 22%;
-  right: 5%;
+  bottom: 8%;
+  right: 12%;
   max-width: 70%;
   text-align: right;
   z-index: 2;
 }
-.pwtv-feedback-heading { font-size: clamp(16px, 2.1cqw, 23px); font-weight: 500; color: #e4e4e4; line-height: 1.3; }
+.pwtv-feedback-heading { font-size: 1.82cqw; font-weight: 800; color: #e4e4e4; line-height: 1.3; }
 .pwtv-feedback-detail { margin-top: 4px; font-size: clamp(14px, 1.8cqw, 20px); color: #aaa; line-height: 1.35; }
 .pwtv-feedback-layout .pwtv-metric-battery { bottom: 8%; }
 .pwtv-battery-energy {
   position: absolute;
-  bottom: calc(100% + 0.7cqw);
-  left: 0;
+  bottom: 0;
+  left: 8.7cqw;
   margin-top: 0;
   color: rgba(255, 255, 255, 0.9);
   font-variant-numeric: tabular-nums;
