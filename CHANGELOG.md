@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Meter caption placement
+
+- Place forecast feedback below the grid meter and stored battery energy below the battery reading.
+- Hide partial-data tags on energy totals while preserving internal completeness tracking.
+
 ## 2026-10-03 — Brief export status
 
 - Abbreviate forecast feedback to one message describing the plan or confirmed export state.

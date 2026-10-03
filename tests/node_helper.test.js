@@ -222,7 +222,7 @@ test("daily summary renders zero, partial estimates and unavailable v1r readings
   assert.equal(frontend.generatedTodayValue({ source: "v1r", solarEnergyToday: false }), "— kWh");
   const dom = frontend.renderSummary({ source: "v1r", solarEnergyToday: true, solarEnergyExportedWh: 59200,
     solarEnergyPartial: true, solarEnergyEstimated: true });
-  assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY (PARTIAL)");
+  assert.equal(dom.children[0].children[0].textContent, "GENERATED TODAY");
   assert.equal(dom.children[0].children[1].textContent, "≈ 59.2 kWh");
 });
 
@@ -247,10 +247,12 @@ test("export window uses existing summary fonts, follows its label settings and 
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   assert.equal(dom.children[2].children[1].className, dom.children[0].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
+  snapshot.gridExportToday.partial = true;
   snapshot.gridExportWindow.partial = true;
   snapshot.gridExportWindow.estimated = true;
   dom = frontend.renderSummary(snapshot);
-  assert.equal(dom.children[2].children[0].textContent, "EXPORTED 4:30-8:15PM (PARTIAL)");
+  assert.equal(dom.children[1].children[0].textContent, "EXPORTED TODAY");
+  assert.equal(dom.children[2].children[0].textContent, "EXPORTED 4:30-8:15PM");
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   snapshot.gridExportWindow.batterySharePartial = true;
   snapshot.gridExportWindow.batteryPercent = null;

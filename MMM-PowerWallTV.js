@@ -369,7 +369,7 @@ Module.register("MMM-PowerWallTV", {
     if (generatedToday) {
       const generated = this.el("div", "pwtv-summary-generated");
       generated.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
-        snapshot.solarEnergyPartial ? "GENERATED TODAY (PARTIAL)" : "GENERATED TODAY"));
+        "GENERATED TODAY"));
       generated.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", generatedToday));
       summary.appendChild(generated);
     }
@@ -378,7 +378,7 @@ Module.register("MMM-PowerWallTV", {
       const reading = snapshot.gridExportToday;
       const block = this.el("div", "pwtv-summary-generated pwtv-summary-export-today");
       block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
-        "EXPORTED TODAY" + (reading && reading.partial ? " (PARTIAL)" : "")));
+        "EXPORTED TODAY"));
       const value = reading && Number.isFinite(reading.energyWh)
         ? `${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
       block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
@@ -391,7 +391,7 @@ Module.register("MMM-PowerWallTV", {
       const block = this.el("div", "pwtv-summary-generated pwtv-summary-export-window");
       const label = `EXPORTED ${this.exportWindowLabel(exportWindow.start, exportWindow.end)}`;
       block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
-        label + (reading && reading.partial ? " (PARTIAL)" : "")));
+        label));
       const value = reading && Number.isFinite(reading.energyWh)
         ? `${this.formatNumber(reading.energyWh / 1000)} kWh` : "— kWh";
       block.appendChild(this.el("div", "pwtv-summary-energy pwtv-summary-generated-value", value));
@@ -456,6 +456,8 @@ Module.register("MMM-PowerWallTV", {
     const valueNode = this.el("div", "pwtv-metric-value");
     valueNode.appendChild(this.renderBatteryValue(snapshot));
     metric.appendChild(valueNode);
+    const energy = this.batteryEnergyLabel(snapshot);
+    if (energy) metric.appendChild(this.el("div", "pwtv-metric-label pwtv-battery-energy", energy));
 
     return metric;
   },
@@ -467,9 +469,6 @@ Module.register("MMM-PowerWallTV", {
     const arrow = this.el("span", `pwtv-battery-arrow ${this.batteryArrowClass(snapshot)}`);
     fragment.appendChild(arrow);
     fragment.appendChild(document.createTextNode(` ${this.formatPercent(snapshot.batteryPercentage, 1)}`));
-
-    const energy = this.batteryEnergyLabel(snapshot);
-    if (energy) fragment.appendChild(this.el("span", "pwtv-battery-energy", energy));
 
     const wrapper = this.el("span");
     wrapper.appendChild(fragment);

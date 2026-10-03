@@ -204,7 +204,7 @@ Missing keys, unverified keys, authentication errors or unavailable readings pro
 
 `EXPORTED TODAY` appears between `GENERATED TODAY` and the configured export-window reading in v1r/TEDAPI modes. It shows all energy exported to the grid since local midnight in kWh, including both solar and battery exports. It uses `site.energy_exported`; imports are not subtracted and solar production is not substituted.
 
-The daily total is independent of the tariff window and remains visible when `GridExportWindow.show` is false. It uses `tedapi.timezone` (or the host timezone), resets at local midnight, and persists in the existing aggregate-history file across restarts. Existing hourly meter history seeds the first total after upgrading. A saved reading within five minutes before midnight can serve as an approximate baseline (tracked internally); a short polling interval across midnight is interpolated. Missing baselines or meter resets are marked `(PARTIAL)`. Missing grid counters show `— kWh`. No new configuration or credentials are required.
+The daily total is independent of the tariff window and remains visible when `GridExportWindow.show` is false. It uses `tedapi.timezone` (or the host timezone), resets at local midnight, and persists in the existing aggregate-history file across restarts. Existing hourly meter history seeds the first total after upgrading. A saved reading within five minutes before midnight can serve as an approximate baseline (tracked internally); a short polling interval across midnight is interpolated. Missing baselines or meter resets are tracked as partial internally; display labels omit the partial marker. Missing grid counters show `— kWh`. No new configuration or credentials are required.
 
 ## Grid export window display
 
@@ -224,7 +224,7 @@ These are the defaults. Use 24-hour `HH:mm` values; the label follows the config
 
 The window follows `tedapi.timezone`, including daylight saving time, or the host timezone if unset. The value starts at zero each local calendar day, accumulates during the window, and remains visible after the window closes until midnight. Its state is saved with the existing aggregate history, so restarting MagicMirror retains the count. Changing the window recalculates what can be recovered from saved meter history.
 
-Polling rarely lands exactly on a boundary. A boundary crossed within five minutes is interpolated and recorded as estimated internally if energy is apportioned. Longer gaps across a boundary, counter resets, or starting without the necessary history show `(PARTIAL)`; unassignable energy is excluded. Gaps wholly inside the window are recovered from cumulative meter differences. Missing or invalid grid counters display `— kWh` and do not count imports or substitute solar power. Historical hourly readings can recover some of the first day's total, but cannot reconstruct missing boundary readings exactly.
+Polling rarely lands exactly on a boundary. A boundary crossed within five minutes is interpolated and recorded as estimated internally if energy is apportioned. Longer gaps across a boundary, counter resets, or starting without the necessary history are tracked as partial internally without adding a display label; unassignable energy is excluded. Gaps wholly inside the window are recovered from cumulative meter differences. Missing or invalid grid counters display `— kWh` and do not count imports or substitute solar power. Historical hourly readings can recover some of the first day's total, but cannot reconstruct missing boundary readings exactly.
 
 Update the module files and restart MagicMirror to enable the default display. No additional Powerwall credentials or RSA registration are required. This is a read-only display feature and does not change `BatteryExportToGridLimit` or any Powerwall setting.
 
@@ -407,7 +407,7 @@ For Australian Powerwall 3 TEDAPI data, the display groups paired inverter strin
 
 The upper-left `GENERATED TODAY` counter uses v1r `/api/meters/aggregates` → `solar.energy_exported` (cumulative Wh). Each refresh subtracts a fixed daily anchor, then converts Wh to kWh. A separate daily state and the latest meter sample are persisted alongside hourly history in `~/.cache/MMM-PowerWallTV/tedapi-aggregates.json`. This prevents hourly updates or MagicMirror restarts from moving the baseline.
 
-The day follows `tedapi.timezone`. At rollover, the last sample from the previous day is used only if it was recorded within five minutes before midnight; otherwise the first available reading today becomes the anchor. A first reading within five minutes after midnight is treated as the day boundary. Starting later without a midnight baseline shows `GENERATED TODAY (PARTIAL)` and counts production from the earliest saved reading today. Missing readings show `— kWh` instead of hiding the counter. Meter resets preserve production already observed and mark the day partial.
+The day follows `tedapi.timezone`. At rollover, the last sample from the previous day is used only if it was recorded within five minutes before midnight; otherwise the first available reading today becomes the anchor. A first reading within five minutes after midnight is treated as the day boundary. Starting later without a midnight baseline shows `GENERATED TODAY` and counts production from the earliest saved reading today. Missing readings show `— kWh` instead of hiding the counter. Meter resets preserve production already observed and mark the day partial.
 
 When moving from the Wi-Fi address `192.168.91.1`, a unique saved series with the same non-empty site name and timezone can supply its earlier same-day integrated total. The module adds subsequent observed v1r meter growth, displays `≈`, and marks this transition day partial because production during the connection gap cannot be recovered from a lifetime counter. No credentials or manual baseline edits are needed. Normal daily tracking resumes at the next observed midnight boundary.
 
@@ -571,7 +571,7 @@ On first verified recovery, history under the configured bootstrap IP/site/timez
 
 Set top-level `exportFeedbackPath` to the Homebridge controller's private `powerwall-forecast-<site-hash>.json.status.json` file. MagicMirror and Homebridge must share readable local storage (the HomeScreen installation runs both as the same user). No credentials are included in the status file.
 
-A short message above the battery reading inside the main panel describes the forecast and export state:
+A short message below the grid meter, aligned to the right inside the main panel describes the forecast and export state:
 
 | Situation | Message |
 | --- | --- |
@@ -587,9 +587,11 @@ A short message above the battery reading inside the main panel describes the fo
 
 Charge thresholds in the messages follow the controller settings. Forecast classification uses the unrounded forecast and controller threshold. Status older than three minutes, failed readbacks, missing files, or contradictory export status show the unconfirmed message. “Enabled” requires confirmed battery export during the window. These messages describe battery export; “disabled” does not necessarily mean solar export is disabled.
 
-The battery reading sits below the message, with smaller stored-energy text beside its percentage (for example, `50% 13.5 of 27kWh`). Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
+The battery reading has smaller stored-energy text underneath its percentage (for example, `50% 13.5 of 27kWh`). Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 
 
 When using Homebridge as the export authority, set `BatteryExportToGridLimit.active: false` in MagicMirror. Enable `forecastExport.manageOperatingMode: true` in Homebridge to select savings for battery export and self-powered otherwise. The Homebridge rules, including strict >90% activation and ≤65% cutoff, drive the display. Homebridge currently uses the fixed 5–9PM schedule; MagicMirror's display-window configuration does not change that controller's schedule.
 
 Alternate IP addresses are accepted as the same device only when authenticated DIN and TLS certificate fingerprint both match.
+
+The display omits `(PARTIAL)` from all energy headings, including after restarts. Incomplete-history flags and energy calculations are preserved internally.
