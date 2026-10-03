@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-03 — Predicted charge percentage caption
+
+- Replace total capacity in the battery caption with the live predicted percentage at 5PM.
+
 ## 2026-10-03 — Predicted battery energy addition
 
 - Show the expected net energy change by 5PM beside stored battery energy.

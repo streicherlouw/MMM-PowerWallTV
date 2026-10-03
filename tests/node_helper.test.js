@@ -363,20 +363,20 @@ test("battery energy caption preserves fractional capacity and guards missing re
     Module: { register: (_, definition) => { frontend = definition; } }
   });
   frontend.formatNumber = (value, digits) => value.toFixed(digits);
-  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: 50 }), "13.5 of 27kWh");
-  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 1, batteryPercentage: 100 }), "13.5 of 13.5kWh");
-  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: 0 }), "0.0 of 27kWh");
+  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: 50 }), "13.5 kWh");
+  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 1, batteryPercentage: 100 }), "13.5 kWh");
+  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: 0 }), "0.0 kWh");
   assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: null }), "");
   assert.equal(frontend.batteryEnergyLabel({ batteryPercentage: 50 }), "");
   const snapshot = { batteryCount: 2, batteryPercentage: 40,
     exportPrediction: { available: true, capacityKwh: 27, currentPercent: 50, projectedPercent: 70 } };
-  assert.equal(frontend.batteryEnergyLabel(snapshot), "13.5 (+5.4) of 27kWh");
+  assert.equal(frontend.batteryEnergyLabel(snapshot), "13.5 (+5.4) kWh, 70% at 5PM");
   snapshot.exportPrediction.projectedPercent = 40;
-  assert.equal(frontend.batteryEnergyLabel(snapshot), "13.5 (−2.7) of 27kWh");
+  assert.equal(frontend.batteryEnergyLabel(snapshot), "13.5 (−2.7) kWh, 40% at 5PM");
   snapshot.exportPrediction.projectedPercent = 50;
-  assert.equal(frontend.batteryEnergyLabel(snapshot), "13.5 (+0.0) of 27kWh");
+  assert.equal(frontend.batteryEnergyLabel(snapshot), "13.5 (+0.0) kWh, 50% at 5PM");
   snapshot.exportPrediction.available = false;
-  assert.equal(frontend.batteryEnergyLabel(snapshot), "10.8 of 27kWh");
+  assert.equal(frontend.batteryEnergyLabel(snapshot), "10.8 kWh");
 });
 
 test("export dot shows forecast plan and turns grey on delayed readings", () => {
