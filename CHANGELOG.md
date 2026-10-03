@@ -3,7 +3,7 @@
 ## 2026-10-03 — Balanced panel padding
 
 - Add 20px of bottom padding without shifting meters relative to the house.
-- Compensate with a smaller HomeScreen gap before the solar forecast module.
+- Move the HomeScreen lower panel group down 20px, retaining equal inter-panel gaps and matching the gap below calendar/weather.
 
 ## 2026-10-03 — Align meters with artwork
 

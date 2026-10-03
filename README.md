@@ -613,10 +613,8 @@ The display omits `(PARTIAL)` from all energy headings, including after restarts
 
 The main panel adds 20px below the scene so the bottom meters have similar breathing room to the top meters. The artwork and meter alignment stay fixed. Override `--pwtv-bottom-padding` on `.pwtv` to change this.
 
-On HomeScreen, the gap before the solar forecast module is reduced by the same 20px, preserving the positions of the modules below it. The deployment's `css/custom.css` uses:
+On HomeScreen, the lower three panels retain equal gaps of approximately 40px and move down together by 20px, matching the space below the calendar/weather modules. The active stylesheet is `config/custom.css` (not `css/custom.css`):
 
 ```css
-.region.bottom.bar > .container > .module.MMM-SolarIrradianceForecast {
-  margin-top: calc(clamp(34px, 2.1vh, 46px) - 20px) !important;
-}
+.region.bottom.bar { bottom: -20px !important; }
 ```
