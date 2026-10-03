@@ -413,10 +413,6 @@
 .pwtv-feedback-detail { margin-top: 4px; font-size: clamp(14px, 1.8cqw, 20px); color: #aaa; line-height: 1.35; }
 .pwtv-feedback-layout .pwtv-metric-battery { bottom: 8%; }
 .pwtv-battery-energy {
-  position: absolute;
-  top: calc(100% + 0.45cqw);
-  left: 0;
-  margin-top: 0;
   color: rgba(255, 255, 255, 0.9);
   font-variant-numeric: tabular-nums;
 }
@@ -435,3 +431,6 @@
 .pwtv-export-dot-planned { background: #5adc70; }
 .pwtv-export-dot-blocked { background: #ff6b6b; }
 .pwtv-export-dot-unknown { background: #999; }
+
+/* Match the gap between the export indicator and GRID. */
+.pwtv-battery-caption { display: flex; align-items: baseline; gap: 1.5cqw; }

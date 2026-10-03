@@ -573,7 +573,7 @@ Set top-level `exportFeedbackPath` to the Homebridge controller's private `power
 
 A right-aligned `EXPORT` caption with a coloured dot sits on the same line immediately left of `GRID`. Green means battery export is planned (forecast above the controller threshold); red means blocked (forecast at or below it). Grey means the forecast or controller status is unavailable, stale or unconfirmed, or automation is disabled. The dot describes the forecast plan, not instantaneous export: charge thresholds and the premium window still govern actual export. Hover text and an accessible label provide the full status.
 
-Stored energy (for example, `13.5 OF 27kWh`) is anchored beneath the battery percentage and follows it as the power reading changes width. The `BATTERY` label remains below the power reading. Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
+Stored energy (for example, `13.5 OF 27kWh`) sits beside `BATTERY` beneath the power reading, with the same gap as the export indicator has from `GRID`. Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 
 
 When using Homebridge as the export authority, set `BatteryExportToGridLimit.active: false` in MagicMirror. Enable `forecastExport.manageOperatingMode: true` in Homebridge to select savings for battery export and self-powered otherwise. The Homebridge rules, including strict >90% activation and ≤65% cutoff, drive the display. Homebridge currently uses the fixed 5–9PM schedule; MagicMirror's display-window configuration does not change that controller's schedule.

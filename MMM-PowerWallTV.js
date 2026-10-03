@@ -460,7 +460,11 @@ Module.register("MMM-PowerWallTV", {
     const valueNode = this.el("div", "pwtv-metric-value");
     valueNode.appendChild(this.renderBatteryValue(snapshot));
     metric.appendChild(valueNode);
-    metric.appendChild(this.el("div", "pwtv-metric-label", "BATTERY"));
+    const caption = this.el("div", "pwtv-metric-label pwtv-battery-caption");
+    caption.appendChild(this.el("span", "", "BATTERY"));
+    const energy = this.batteryEnergyLabel(snapshot);
+    if (energy) caption.appendChild(this.el("span", "pwtv-battery-energy", energy));
+    metric.appendChild(caption);
 
     return metric;
   },
@@ -473,8 +477,6 @@ Module.register("MMM-PowerWallTV", {
     fragment.appendChild(arrow);
     fragment.appendChild(document.createTextNode(" "));
     const charge = this.el("span", "pwtv-battery-charge", this.formatPercent(snapshot.batteryPercentage, 1));
-    const energy = this.batteryEnergyLabel(snapshot);
-    if (energy) charge.appendChild(this.el("span", "pwtv-metric-label pwtv-battery-energy", energy));
     fragment.appendChild(charge);
 
     const wrapper = this.el("span");

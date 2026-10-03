@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-03 — Balanced caption spacing
+
+- Match the BATTERY-to-energy gap to the export-indicator-to-GRID gap.
+
 ## 2026-10-03 — Export status dot
 
 - Replace the export plan caption with EXPORT and a green, red, or grey dot.
