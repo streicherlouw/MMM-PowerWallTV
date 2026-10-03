@@ -4,6 +4,8 @@ import ipaddress
 import json
 import os
 import socket
+import ssl
+import hashlib
 import tempfile
 import time
 
@@ -27,7 +29,13 @@ def reachable(host):
         return False
 
 
-def connect(host, expected, cidr, cache_path, factory, scanner, probe=reachable, now=time.time):
+def certificate_digest(host):
+    with socket.create_connection((host, 443), timeout=5) as sock:
+        with ssl._create_unverified_context().wrap_socket(sock, server_hostname=host) as tls:
+            return hashlib.sha256(tls.getpeercert(binary_form=True)).hexdigest()
+
+
+def connect(host, expected, cidr, cache_path, factory, scanner, probe=reachable, now=time.time, fingerprint=certificate_digest):
     network = ipaddress.ip_network(cidr, strict=False)
     if network.version != 4 or network.num_addresses > 1024 or not expected or expected == "Powerwall-3":
         raise ValueError("Discovery requires a unique expected DIN and IPv4 network of at most 1024 addresses.")
@@ -75,12 +83,13 @@ def connect(host, expected, cidr, cache_path, factory, scanner, probe=reachable,
                 if ipaddress.ip_address(candidate) not in network:
                     continue
                 try:
-                    matches.append((candidate, verify(candidate)))
+                    pw = verify(candidate)
+                    matches.append((candidate, pw, fingerprint(candidate)))
                 except Exception:
                     continue
-            if len(matches) != 1:
+            if not matches or len({match[2] for match in matches}) != 1:
                 raise RuntimeError("Discovery did not find exactly one verified gateway; controls suspended.")
-            address, pw = matches[0]
+            address, pw, _ = next((m for m in matches if m[0] == address), matches[0])
         state.update(host=address, failures=0, verifiedAt=now())
         save(path, state)
         # Retain the lock through the caller's telemetry/control cycle.

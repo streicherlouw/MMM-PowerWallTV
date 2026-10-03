@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-03 — Controller-backed forecast messages
+
+- Show concise forecast and export-policy messages below the graphic in normal layout flow.
+- Read fresh, confirmed Homebridge status; show unavailable status for failures or stale data.
+- Document single-controller ownership and optional Homebridge operating-mode coordination.
+
 ## 2026-10-03 — Simplify export summary
 
 - Remove the export-source percentage row from the display, retaining energy totals and internal attribution.

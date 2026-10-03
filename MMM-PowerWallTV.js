@@ -208,6 +208,7 @@ Module.register("MMM-PowerWallTV", {
     const scene = this.el("div", "pwtv-scene");
     this.domRefs.scene = scene;
     wrapper.appendChild(scene);
+    wrapper.appendChild(this.renderExportFeedback(this.snapshot));
 
     const stage = this.el("div", "pwtv-stage");
     this.domRefs.stage = stage;
@@ -269,6 +270,7 @@ Module.register("MMM-PowerWallTV", {
       return false;
     }
 
+    this.replaceElement(this.domRefs.wrapper, ".pwtv-feedback", this.renderExportFeedback(snapshot));
     const scene = this.domRefs.scene;
     const stage = this.domRefs.stage;
 
@@ -344,6 +346,18 @@ Module.register("MMM-PowerWallTV", {
     });
   },
 
+  renderExportFeedback(snapshot) {
+    const strip = this.el("div", "pwtv-feedback");
+    let message = snapshot && snapshot.exportFeedback;
+    if ((this.infoMessage && this.infoMessage.startsWith("Powerwall data delayed")) || this.errorMessage || (snapshot && snapshot.errorMessage)) {
+      message = { heading: "Powerwall data delayed", detail: "Live settings unconfirmed—checking connection." };
+    }
+    if (!message) { strip.style && (strip.style.display = "none"); return strip; }
+    strip.appendChild(this.el("div", "pwtv-feedback-heading", message.heading));
+    strip.appendChild(this.el("div", "pwtv-feedback-detail", message.detail));
+    return strip;
+  },
+
   renderSummary(snapshot) {
     const summary = this.el("div", "pwtv-summary");
     const siteName = snapshot.siteName || this.config.local.siteName || this.config.fleet.siteName;
@@ -393,11 +407,6 @@ Module.register("MMM-PowerWallTV", {
       summary.appendChild(energyLabel);
     }
 
-    const message = this.errorMessage || snapshot.errorMessage || this.infoMessage;
-    if (message) {
-      const node = this.el("div", this.errorMessage || snapshot.errorMessage ? "pwtv-summary-message pwtv-error" : "pwtv-summary-message", message);
-      summary.appendChild(node);
-    }
 
     return summary;
   },

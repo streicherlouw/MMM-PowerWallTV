@@ -1,4 +1,5 @@
 const NodeHelper = require("node_helper");
+const { feedback } = require("./lib/export-feedback");
 const GridExportWindow = require("./lib/grid-export-window");
 const { execFile } = require("child_process");
 const fs = require("fs");
@@ -56,6 +57,11 @@ module.exports = NodeHelper.create({
       errorMessage: `Grid carbon unavailable: ${error.message}`
     }));
 
+    if (normalized.exportFeedbackPath) {
+      let status;
+      try { status = JSON.parse(fs.readFileSync(normalized.exportFeedbackPath, "utf8")); } catch { /* Display unavailable. */ }
+      try { snapshot.exportFeedback = feedback(status); } catch { snapshot.exportFeedback = feedback(null); }
+    }
     snapshot.instanceId = instanceId;
     snapshot.fetchedAt = new Date().toISOString();
     snapshot.latencyMs = Date.now() - startedAt;
@@ -163,6 +169,7 @@ module.exports = NodeHelper.create({
 
     return {
       mode,
+      exportFeedbackPath: config.exportFeedbackPath || "",
       BatteryExportToGridLimit,
       GridExportWindow: gridExportWindow,
       local,

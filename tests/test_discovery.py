@@ -24,7 +24,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def run_connect(self):
         return d.connect("10.0.0.98", "expected-din", "10.0.0.0/24", self.cache,
-                         self.factory, self.scanner, self.probe, lambda: 1000)
+                         self.factory, self.scanner, self.probe, lambda: 1000, fingerprint=lambda host: host)
 
     def test_rediscovery_then_cached_address_and_permissions(self):
         with self.assertRaises(RuntimeError):
@@ -56,6 +56,16 @@ class DiscoveryTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.run_connect()
         self.assertNotIn("host", json.loads(Path(self.cache).read_text()))
+
+    def test_same_authenticated_device_certificate_allows_two_addresses(self):
+        self.probe = lambda host: host != "10.0.0.98"
+        self.scanner.return_value = [{"ip": "10.0.0.75"}, {"ip": "10.0.0.76"}]
+        with self.assertRaises(RuntimeError):
+            self.run_connect()
+        _, address, lock = d.connect("10.0.0.98", "expected-din", "10.0.0.0/24", self.cache,
+            self.factory, self.scanner, self.probe, lambda: 1000, fingerprint=lambda _: "same-certificate")
+        lock.close()
+        self.assertEqual(address, "10.0.0.75")
 
     def test_unbounded_network_rejected_before_probe(self):
         with self.assertRaises(ValueError):
