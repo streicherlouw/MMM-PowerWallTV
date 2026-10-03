@@ -323,3 +323,39 @@ test("outside battery display hours both heading and percentage disappear but en
   assert.equal(dom.children[3].children[0].textContent, "FROM BATTERY");
   assert.equal(dom.children[3].children[1].textContent, "40.0%");
 });
+
+
+test("verified DIN migrates history once and survives another IP change", () => {
+  const { h, config, store, site } = energyHarness();
+  site.migrationMarker = "retained";
+  const old = h.tedapiAggregateHistoryKey(config, "Australia/Melbourne");
+  config.tedapi.deviceDIN = "expected-din";
+  config.tedapi.resolvedGatewayIP = "10.0.0.75";
+  h.updateTedapiAggregateHistory(config, { solar: { energy_exported: 1000 }, site: { energy_exported: 500 } });
+  const key = h.tedapiAggregateHistoryKey(config, "Australia/Melbourne");
+  assert.equal(key, "din:expected-din|Australia/Melbourne");
+  assert.equal(store.sites[key].migrationMarker, "retained");
+  assert.equal(store.sites[old], undefined);
+  config.tedapi.resolvedGatewayIP = "10.0.0.80";
+  h.updateTedapiAggregateHistory(config, { solar: { energy_exported: 1100 }, site: { energy_exported: 550 } });
+  assert.equal(store.sites[key].migrationMarker, "retained");
+  assert.equal(store.sites[key].gatewayIP, "10.0.0.80");
+});
+
+test("discovery flags and verified identity reach history and snapshot", async () => {
+  const h = helper();
+  h.execJsonFile = async (_, args) => {
+    assert.equal(args[args.indexOf("--expected-din") + 1], "expected-din");
+    assert.equal(args[args.indexOf("--discovery-cidr") + 1], "10.0.0.0/24");
+    return { gatewayDIN: "expected-din", resolvedGatewayIP: "10.0.0.75", aggregateMeters: {} };
+  };
+  h.updateTedapiAggregateHistory = config => {
+    assert.equal(config.tedapi.deviceDIN, "expected-din");
+    return {};
+  };
+  const result = await h.fetchSnapshot("test", { mode: "v1r", tedapi: {
+    gatewayIP: "10.0.0.98", rsaKeyPath: "key", gatewayPassword: "secret",
+    discovery: { enabled: true, cidr: "10.0.0.0/24", expectedDIN: "expected-din" }
+  } });
+  assert.equal(result.resolvedGatewayIP, "10.0.0.75");
+});

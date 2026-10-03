@@ -179,6 +179,9 @@ def main():
     parser.add_argument("--export-window-start", default="17:00")
     parser.add_argument("--export-window-end", default="21:00")
     parser.add_argument("--premium-controls", default="{}")
+    parser.add_argument("--discovery-cidr", default="")
+    parser.add_argument("--expected-din", default="")
+    parser.add_argument("--discovery-cache", default="~/.cache/MMM-PowerWallTV/discovery.json")
     args = parser.parse_args()
     try:
         controls = control_settings(json.loads(args.premium_controls))
@@ -216,19 +219,25 @@ def main():
             fail("Option 5 requires pypowerwall>=0.17.3; upgrade the module's Python environment.")
         options["rsa_key_path"] = key_path
 
+    def factory(host):
+        return pypowerwall.Powerwall(host=host, password="", email="", timezone=timezone,
+                                    timeout=args.timeout, poolmaxsize=0, gw_pwd=gateway_password, **options)
+
+    resolved_host = args.host
+    discovery_lock = None
     try:
-        powerwall = pypowerwall.Powerwall(
-            host=args.host,
-            password="",
-            email="",
-            timezone=timezone,
-            timeout=args.timeout,
-            poolmaxsize=0,
-            gw_pwd=gateway_password,
-            **options,
-        )
+        if args.discovery_cidr:
+            if args.transport != "v1r":
+                fail("Discovery requires v1r transport.")
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from pwtv_discovery import connect
+            from pypowerwall.scan import scan
+            powerwall, resolved_host, discovery_lock = connect(
+                args.host, args.expected_din, args.discovery_cidr, args.discovery_cache, factory, scan)
+        else:
+            powerwall = factory(args.host)
     except Exception as exc:
-        fail(f"Unable to connect to TEDAPI ({type(exc).__name__}); check host, password and RSA registration.")
+        fail(f"Unable to connect to verified TEDAPI ({type(exc).__name__}); check gateway connectivity and discovery status.")
 
     if args.transport == "v1r" and getattr(powerwall, "tedapi_mode", "") != "v1r":
         fail("v1r connection failed; refusing a fallback transport.")
@@ -265,6 +274,8 @@ def main():
             premium_window(timezone, args.export_window_start, args.export_window_end), controls)
 
     output = {
+        "resolvedGatewayIP": resolved_host,
+        "gatewayDIN": args.expected_din if args.discovery_cidr else None,
         "source": "v1r" if args.transport == "v1r" else "tedapi",
         "siteName": args.site_name or safe(powerwall.site_name, "") or "",
         "solarPower": number_at(power, "solar"),

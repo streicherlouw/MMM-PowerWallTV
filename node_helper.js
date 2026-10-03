@@ -222,6 +222,15 @@ module.exports = NodeHelper.create({
     if (passwordFile) {
       args.push("--password-file", passwordFile);
     }
+    const discovery = config.tedapi.discovery;
+    if (discovery && discovery.enabled) {
+      if (!useV1r || typeof discovery.expectedDIN !== "string" || !discovery.expectedDIN ||
+          typeof discovery.cidr !== "string" || !discovery.cidr) {
+        throw new Error("TEDAPI discovery requires v1r, expectedDIN and a bounded cidr.");
+      }
+      args.push("--discovery-cidr", discovery.cidr, "--expected-din", discovery.expectedDIN,
+        "--discovery-cache", this.resolveTedapiFile(discovery.cachePath || "~/.cache/MMM-PowerWallTV/discovery.json"));
+    }
     const limit = config.BatteryExportToGridLimit;
     args.push("--export-lower-threshold", String(limit.lowerThreshold),
       "--export-upper-threshold", String(limit.upperThreshold),
@@ -252,12 +261,16 @@ module.exports = NodeHelper.create({
     };
     let infoMessage = payload.batteryExportToGridLimit && payload.batteryExportToGridLimit.error || "";
     try {
-      tedapiEnergy = this.updateTedapiAggregateHistory(config, aggregateMeters, Number(payload.solarPower) || 0);
+      const historyConfig = payload.gatewayDIN ? { ...config, tedapi: { ...config.tedapi,
+        deviceDIN: payload.gatewayDIN, resolvedGatewayIP: payload.resolvedGatewayIP } } : config;
+      tedapiEnergy = this.updateTedapiAggregateHistory(historyConfig, aggregateMeters, Number(payload.solarPower) || 0);
     } catch (error) {
       infoMessage = [infoMessage, `TEDAPI aggregate cache unavailable: ${error.message}`].filter(Boolean).join(" ");
     }
 
     return {
+      resolvedGatewayIP: payload.resolvedGatewayIP || gatewayIP,
+      gatewayDIN: payload.gatewayDIN || null,
       source: useV1r ? "v1r" : "tedapi",
       timeZone: this.effectiveTedapiTimeZone(config),
       siteName: config.tedapi.siteName || payload.siteName || "",
@@ -328,6 +341,13 @@ module.exports = NodeHelper.create({
     const historyPath = this.resolveTedapiAggregateHistoryPath(config);
     const store = this.loadTedapiAggregateHistoryStore(config);
     const siteKey = this.tedapiAggregateHistoryKey(config, timeZone);
+    if (config.tedapi.deviceDIN && !store.sites[siteKey]) {
+      const legacyKey = [config.tedapi.gatewayIP, config.tedapi.siteName || "", timeZone].join("|");
+      if (store.sites[legacyKey]) {
+        store.sites[siteKey] = store.sites[legacyKey];
+        delete store.sites[legacyKey];
+      }
+    }
     const siteHistory = store.sites[siteKey] || {
       gatewayIP: String(config.tedapi.gatewayIP || ""),
       siteName: String(config.tedapi.siteName || ""),
@@ -417,7 +437,8 @@ module.exports = NodeHelper.create({
     siteHistory.readings = readings
       .filter((reading) => reading && Date.parse(reading.observedAt) >= cutoffMs)
       .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
-    siteHistory.gatewayIP = String(config.tedapi.gatewayIP || "");
+    siteHistory.gatewayIP = String(config.tedapi.resolvedGatewayIP || config.tedapi.gatewayIP || "");
+    if (config.tedapi.deviceDIN) siteHistory.deviceDIN = config.tedapi.deviceDIN;
     siteHistory.siteName = String(config.tedapi.siteName || "");
     siteHistory.timeZone = timeZone;
     siteHistory.updatedAt = observedAt.toISOString();
@@ -569,6 +590,7 @@ module.exports = NodeHelper.create({
   },
 
   tedapiAggregateHistoryKey(config, timeZone) {
+    if (config.tedapi.deviceDIN) return `din:${config.tedapi.deviceDIN}|${timeZone}`;
     return [
       String(config.tedapi.gatewayIP || ""),
       String(config.tedapi.siteName || ""),

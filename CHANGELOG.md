@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-03 — Verified DHCP recovery
+
+- Add opt-in pyPowerwall discovery after repeated connection failures, with bounded scans and cooldown.
+- Verify gateway DIN and v1r telemetry before caching a new address or running controls.
+- Lock recovery/control cycles and persist the verified address privately without rewriting configuration.
+- Migrate energy history to stable DIN keys and expose the resolved address in snapshots.
+- Test recovery, cached reuse, identity mismatch, ambiguity, scan bounds, locking and history migration.
+
 ## 2026-09-20 — Couple operational mode to export hysteresis
 
 - Select the configured outside operational mode when export is stopped by the lower threshold, and restore the inside mode when export re-arms.

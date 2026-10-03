@@ -37,7 +37,7 @@ npm ci
 npm test
 ```
 
-`npm test` runs the JavaScript syntax checks and 77 automated tests (48 JavaScript and 29 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
+`npm test` runs the JavaScript syntax checks and 84 automated tests (50 JavaScript and 34 Python) without contacting a Powerwall. Continue with the option 5 setup below for Powerwall 3, or use the demo configuration to preview the display without hardware.
 
 ## Powerwall 3 LAN Config — Option 5 (Recommended)
 
@@ -567,3 +567,24 @@ On the first refresh after this fix, older export accumulators are rebuilt from 
 The HomeScreen deployment uses `lowerThreshold: 65` and `upperThreshold: 90`. With the configured targets, below 65% the controller sets `pv_only` and `self_consumption` in the same polling cycle. At exactly 65% the previous state is retained. From 65% to below 90%, the gateway export rule retains the on/off state; at 90% or above during the premium window, the pair becomes `battery_ok` and `autonomous`. Outside the window, the configured outside targets apply.
 
 The two API writes are sequential, not atomic: export permission is written and confirmed before operational mode. If the mode write fails, the next poll repairs the mismatch using the confirmed export state. Both lever enable flags and custom mode targets remain supported. Changing the lower threshold alone does not re-arm a battery already stopped by the previous threshold; it still waits for 90%.
+
+## Automatic recovery after DHCP address changes
+
+For option 5, add this block inside `tedapi` (use your gateway's verified DIN):
+
+```js
+discovery: {
+  enabled: true,
+  cidr: "10.0.0.0/24",
+  expectedDIN: "1707000-30-K--TG124346002F63",
+  cachePath: "~/.cache/MMM-PowerWallTV/discovery.json"
+}
+```
+
+Discovery is opt-in. Keep `gatewayIP` as the original bootstrap address: the helper first tries the cached, verified address. After two failed connection attempts, it runs pyPowerwall's built-in scanner, at most once every five minutes. Retries within a refresh count as attempts. The scan is confined to the configured IPv4 CIDR (maximum 1024 addresses); it does not scan the router's whole `/8` network. More than eight candidates or multiple matching gateways stop automatic recovery.
+
+A candidate must connect using the existing registered RSA key in v1r mode, report the exact expected DIN, and supply telemetry before selection. Scanner labels such as `Powerwall-3` are not accepted as identities. No discovery control writes occur. The normal control cycle additionally validates power readings and charge before acting. Reconnection resumes the configured battery rules, so it can change settings that drifted while disconnected.
+
+The address cache is atomically written with private permissions; a process lock covers discovery and the subsequent read/control cycle. `config.js` is not rewritten on each address change. Snapshots report `resolvedGatewayIP` and `gatewayDIN`. Unknown identity, failed authentication or no unique match leaves control suspended and the existing connection-error display active; do not blindly replace the expected DIN to bypass verification.
+
+On first verified recovery, history under the configured bootstrap IP/site/timezone is migrated intact to a DIN/timezone key. Subsequent address changes reuse that history. Preserve the old `gatewayIP` while enabling this migration, and back up the history first. Outage gaps still follow the existing partial/estimated energy rules. Do not share a discovery cache between different gateways. Disabling discovery returns to the configured address; it does not rewrite the cache or reverse history migration.
