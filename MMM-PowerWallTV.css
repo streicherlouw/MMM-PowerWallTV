@@ -401,10 +401,10 @@
   }
 }
 
-/* Align forecast feedback below the grid meter, inside the main panel. */
+/* Two right-aligned forecast lines above the grid meter. */
 .pwtv-feedback {
   position: absolute;
-  bottom: 2%;
+  bottom: 22%;
   right: 5%;
   max-width: 70%;
   text-align: right;
@@ -413,4 +413,11 @@
 .pwtv-feedback-heading { font-size: clamp(16px, 2.1cqw, 23px); font-weight: 500; color: #e4e4e4; line-height: 1.3; }
 .pwtv-feedback-detail { margin-top: 4px; font-size: clamp(14px, 1.8cqw, 20px); color: #aaa; line-height: 1.35; }
 .pwtv-feedback-layout .pwtv-metric-battery { bottom: 8%; }
-.pwtv-battery-energy { font-weight: 500; color: #aaa; }
+.pwtv-battery-energy {
+  position: absolute;
+  bottom: calc(100% + 0.7cqw);
+  left: 0;
+  margin-top: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+}

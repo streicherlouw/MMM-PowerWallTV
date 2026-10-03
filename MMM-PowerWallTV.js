@@ -353,8 +353,10 @@ Module.register("MMM-PowerWallTV", {
       message = { heading: "Powerwall unavailable · Export status unconfirmed", detail: "" };
     }
     if (!message) { strip.style && (strip.style.display = "none"); return strip; }
-    strip.appendChild(this.el("div", "pwtv-feedback-heading", message.heading));
-    if (message.detail) strip.appendChild(this.el("div", "pwtv-feedback-detail", message.detail));
+    const [heading, ...status] = message.heading.split(" · ");
+    strip.appendChild(this.el("div", "pwtv-feedback-heading", heading));
+    const detail = status.join(" · ") || message.detail;
+    if (detail) strip.appendChild(this.el("div", "pwtv-feedback-detail", detail));
     return strip;
   },
 
@@ -456,6 +458,7 @@ Module.register("MMM-PowerWallTV", {
     const valueNode = this.el("div", "pwtv-metric-value");
     valueNode.appendChild(this.renderBatteryValue(snapshot));
     metric.appendChild(valueNode);
+    metric.appendChild(this.el("div", "pwtv-metric-label", "BATTERY"));
     const energy = this.batteryEnergyLabel(snapshot);
     if (energy) metric.appendChild(this.el("div", "pwtv-metric-label pwtv-battery-energy", energy));
 

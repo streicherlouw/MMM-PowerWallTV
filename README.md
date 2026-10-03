@@ -571,7 +571,7 @@ On first verified recovery, history under the configured bootstrap IP/site/timez
 
 Set top-level `exportFeedbackPath` to the Homebridge controller's private `powerwall-forecast-<site-hash>.json.status.json` file. MagicMirror and Homebridge must share readable local storage (the HomeScreen installation runs both as the same user). No credentials are included in the status file.
 
-A short message below the grid meter, aligned to the right inside the main panel describes the forecast and export state:
+A short message on two right-aligned lines above the grid meter inside the main panel describes the forecast and export state:
 
 | Situation | Message |
 | --- | --- |
@@ -587,7 +587,7 @@ A short message below the grid meter, aligned to the right inside the main panel
 
 Charge thresholds in the messages follow the controller settings. Forecast classification uses the unrounded forecast and controller threshold. Status older than three minutes, failed readbacks, missing files, or contradictory export status show the unconfirmed message. “Enabled” requires confirmed battery export during the window. These messages describe battery export; “disabled” does not necessarily mean solar export is disabled.
 
-The battery reading has smaller stored-energy text underneath its percentage (for example, `50% 13.5 of 27kWh`). Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
+The battery reading has a `BATTERY` caption beneath it, matching the `GRID` caption, and stored-energy text above it in the same font as the solar-string readings (for example, `50% 13.5 of 27kWh`). Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 
 
 When using Homebridge as the export authority, set `BatteryExportToGridLimit.active: false` in MagicMirror. Enable `forecastExport.manageOperatingMode: true` in Homebridge to select savings for battery export and self-powered otherwise. The Homebridge rules, including strict >90% activation and ≤65% cutoff, drive the display. Homebridge currently uses the fixed 5–9PM schedule; MagicMirror's display-window configuration does not change that controller's schedule.

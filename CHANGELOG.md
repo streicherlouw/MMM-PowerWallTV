@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Two-line forecast and battery label
+
+- Place forecast and export status on separate right-aligned lines above the grid meter.
+- Add a BATTERY caption beneath the charge reading and move stored energy above it in the solar-string font.
+
 ## 2026-10-03 — Meter caption placement
 
 - Place forecast feedback below the grid meter and stored battery energy below the battery reading.
