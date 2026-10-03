@@ -368,3 +368,23 @@ test("battery energy caption preserves fractional capacity and guards missing re
   assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: null }), "");
   assert.equal(frontend.batteryEnergyLabel({ batteryPercentage: 50 }), "");
 });
+
+test("export dot shows forecast plan and turns grey on delayed readings", () => {
+  let frontend;
+  vm.runInNewContext(fs.readFileSync(path.join(directory, "MMM-PowerWallTV.js"), "utf8"), {
+    Module: { register: (_, definition) => { frontend = definition; } }
+  });
+  frontend.el = (_, className, textContent) => ({ className, textContent, children: [],
+    appendChild(child) { this.children.push(child); }, setAttribute(key, value) { this[key] = value; } });
+  for (const [heading, state] of [["BATTERY EXPORT PLANNED", "planned"],
+    ["BATTERY EXPORT BLOCKED", "blocked"], ["CHARGE LIMITS APPLY", "unknown"],
+    ["EXPORT CONTROL OFF", "unknown"], ["EXPORT STATUS UNKNOWN", "unknown"]]) {
+    const dom = frontend.renderExportFeedback({ exportFeedback: { heading } });
+    assert.equal(dom.children[0].textContent, "EXPORT");
+    assert.equal(dom.children[1].className, `pwtv-export-dot pwtv-export-dot-${state}`);
+    assert.equal(dom["aria-label"], heading);
+  }
+  frontend.infoMessage = "Powerwall data delayed";
+  assert.equal(frontend.renderExportFeedback({ exportFeedback: { heading: "BATTERY EXPORT PLANNED" } })
+    .children[1].className, "pwtv-export-dot pwtv-export-dot-unknown");
+});

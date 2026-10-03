@@ -351,10 +351,14 @@ Module.register("MMM-PowerWallTV", {
       message = { heading: "EXPORT STATUS UNKNOWN", detail: "" };
     }
     if (!message) { strip.style && (strip.style.display = "none"); return strip; }
-    const [heading, ...status] = message.heading.split(" · ");
-    strip.appendChild(this.el("div", "pwtv-feedback-heading", heading));
-    const detail = status.join(" · ") || message.detail;
-    if (detail) strip.appendChild(this.el("div", "pwtv-feedback-detail", detail));
+    const state = message.heading === "BATTERY EXPORT PLANNED" ? "planned" :
+      message.heading === "BATTERY EXPORT BLOCKED" ? "blocked" : "unknown";
+    strip.title = message.heading;
+    strip.setAttribute("aria-label", message.heading);
+    strip.appendChild(this.el("span", "pwtv-feedback-heading", "EXPORT"));
+    const dot = this.el("span", `pwtv-export-dot pwtv-export-dot-${state}`);
+    dot.setAttribute("aria-hidden", "true");
+    strip.appendChild(dot);
     return strip;
   },
 

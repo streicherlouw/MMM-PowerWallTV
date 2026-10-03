@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Export status dot
+
+- Replace the export plan caption with EXPORT and a green, red, or grey dot.
+- Retain the full status in hover text and an accessible label.
+
 ## 2026-10-03 — Forecast plan captions
 
 - Restore three-word forecast plan labels on the GRID caption line.

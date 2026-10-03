@@ -571,7 +571,7 @@ On first verified recovery, history under the configured bootstrap IP/site/timez
 
 Set top-level `exportFeedbackPath` to the Homebridge controller's private `powerwall-forecast-<site-hash>.json.status.json` file. MagicMirror and Homebridge must share readable local storage (the HomeScreen installation runs both as the same user). No credentials are included in the status file.
 
-A right-aligned caption on the same line immediately left of `GRID` describes the forecast plan: `BATTERY EXPORT PLANNED` above the controller's forecast threshold, `BATTERY EXPORT BLOCKED` at or below it, and `CHARGE LIMITS APPLY` when the forecast is unavailable. Charge thresholds and the premium window still govern actual export. Stale or unconfirmed controller status shows `EXPORT STATUS UNKNOWN`; disabled automation shows `EXPORT CONTROL OFF`.
+A right-aligned `EXPORT` caption with a coloured dot sits on the same line immediately left of `GRID`. Green means battery export is planned (forecast above the controller threshold); red means blocked (forecast at or below it). Grey means the forecast or controller status is unavailable, stale or unconfirmed, or automation is disabled. The dot describes the forecast plan, not instantaneous export: charge thresholds and the premium window still govern actual export. Hover text and an accessible label provide the full status.
 
 Stored energy (for example, `13.5 OF 27kWh`) is anchored beneath the battery percentage and follows it as the power reading changes width. The `BATTERY` label remains below the power reading. Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 

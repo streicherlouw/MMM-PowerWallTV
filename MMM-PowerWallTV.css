@@ -423,3 +423,15 @@
 
 .pwtv-battery-charge { display: inline-block; position: relative; }
 .pwtv-metric-grid > .pwtv-metric-label { position: relative; width: max-content; margin-left: auto; }
+
+.pwtv-export-dot {
+  display: inline-block;
+  width: 0.65em;
+  height: 0.65em;
+  margin-left: 0.45em;
+  border-radius: 50%;
+  vertical-align: 0.02em;
+}
+.pwtv-export-dot-planned { background: #5adc70; }
+.pwtv-export-dot-blocked { background: #ff6b6b; }
+.pwtv-export-dot-unknown { background: #999; }
