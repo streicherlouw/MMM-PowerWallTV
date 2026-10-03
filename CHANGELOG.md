@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Forecast plan captions
+
+- Restore three-word forecast plan labels on the GRID caption line.
+- Anchor stored energy dynamically beneath the battery percentage.
+
 ## 2026-10-03 — Compact meter status
 
 - Move stored energy beside BATTERY and capitalize OF.

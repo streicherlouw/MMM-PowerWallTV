@@ -571,9 +571,9 @@ On first verified recovery, history under the configured bootstrap IP/site/timez
 
 Set top-level `exportFeedbackPath` to the Homebridge controller's private `powerwall-forecast-<site-hash>.json.status.json` file. MagicMirror and Homebridge must share readable local storage (the HomeScreen installation runs both as the same user). No credentials are included in the status file.
 
-A compact uppercase caption to the left of `GRID` shows the current confirmed setting: `BATTERY EXPORT ENABLED` for `battery_ok`, or `NO BATTERY EXPORT` for `pv_only` / `never`. Missing, stale (over three minutes), failed, or unrecognized readings show `EXPORT STATUS UNKNOWN`. The caption describes permission to export battery energy, not instantaneous power flow or a future plan.
+A right-aligned caption on the same line immediately left of `GRID` describes the forecast plan: `BATTERY EXPORT PLANNED` above the controller's forecast threshold, `BATTERY EXPORT BLOCKED` at or below it, and `CHARGE LIMITS APPLY` when the forecast is unavailable. Charge thresholds and the premium window still govern actual export. Stale or unconfirmed controller status shows `EXPORT STATUS UNKNOWN`; disabled automation shows `EXPORT CONTROL OFF`.
 
-The battery caption reads `BATTERY`, with stored energy beside it (for example, `13.5 OF 27kWh`). Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
+Stored energy (for example, `13.5 OF 27kWh`) is anchored beneath the battery percentage and follows it as the power reading changes width. The `BATTERY` label remains below the power reading. Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 
 
 When using Homebridge as the export authority, set `BatteryExportToGridLimit.active: false` in MagicMirror. Enable `forecastExport.manageOperatingMode: true` in Homebridge to select savings for battery export and self-powered otherwise. The Homebridge rules, including strict >90% activation and ≤65% cutoff, drive the display. Homebridge currently uses the fixed 5–9PM schedule; MagicMirror's display-window configuration does not change that controller's schedule.

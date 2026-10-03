@@ -212,7 +212,6 @@ Module.register("MMM-PowerWallTV", {
     const stage = this.el("div", "pwtv-stage");
     this.domRefs.stage = stage;
     scene.appendChild(stage);
-    scene.appendChild(this.renderExportFeedback(this.snapshot));
 
     const image = this.el("img", "pwtv-home-image");
     image.src = this.file(`assets/${this.homeImageName()}`);
@@ -234,7 +233,7 @@ Module.register("MMM-PowerWallTV", {
     scene.appendChild(this.renderSolarMetric(this.snapshot));
     scene.appendChild(this.renderMetric("home", this.formatPower(this.homePowerToDisplay(this.snapshot)), "HOME"));
     scene.appendChild(this.renderBatteryMetric(this.snapshot));
-    scene.appendChild(this.renderMetric("grid", this.renderGridValue(this.snapshot), this.gridLabel(this.snapshot), true));
+    scene.appendChild(this.renderGridMetric(this.snapshot));
 
     if (this.config.showVehicle && this.hasWallConnector(this.snapshot)) {
       stage.appendChild(this.renderMetric("vehicle", this.vehicleValue(this.snapshot), this.vehicleLabel(this.snapshot)));
@@ -270,7 +269,6 @@ Module.register("MMM-PowerWallTV", {
       return false;
     }
 
-    this.replaceElement(this.domRefs.scene, ".pwtv-feedback", this.renderExportFeedback(snapshot));
     const scene = this.domRefs.scene;
     const stage = this.domRefs.stage;
 
@@ -279,7 +277,7 @@ Module.register("MMM-PowerWallTV", {
     this.replaceElement(scene, ".pwtv-metric-solar", this.renderSolarMetric(snapshot));
     this.replaceElement(scene, ".pwtv-metric-home", this.renderMetric("home", this.formatPower(this.homePowerToDisplay(snapshot)), "HOME"));
     this.replaceElement(scene, ".pwtv-metric-battery", this.renderBatteryMetric(snapshot));
-    this.replaceElement(scene, ".pwtv-metric-grid", this.renderMetric("grid", this.renderGridValue(snapshot), this.gridLabel(snapshot), true));
+    this.replaceElement(scene, ".pwtv-metric-grid", this.renderGridMetric(snapshot));
 
     const vehicleMetric = this.config.showVehicle && this.hasWallConnector(snapshot)
       ? this.renderMetric("vehicle", this.vehicleValue(snapshot), this.vehicleLabel(snapshot))
@@ -459,8 +457,6 @@ Module.register("MMM-PowerWallTV", {
     valueNode.appendChild(this.renderBatteryValue(snapshot));
     metric.appendChild(valueNode);
     metric.appendChild(this.el("div", "pwtv-metric-label", "BATTERY"));
-    const energy = this.batteryEnergyLabel(snapshot);
-    if (energy) metric.appendChild(this.el("div", "pwtv-metric-label pwtv-battery-energy", energy));
 
     return metric;
   },
@@ -471,11 +467,22 @@ Module.register("MMM-PowerWallTV", {
 
     const arrow = this.el("span", `pwtv-battery-arrow ${this.batteryArrowClass(snapshot)}`);
     fragment.appendChild(arrow);
-    fragment.appendChild(document.createTextNode(` ${this.formatPercent(snapshot.batteryPercentage, 1)}`));
+    fragment.appendChild(document.createTextNode(" "));
+    const charge = this.el("span", "pwtv-battery-charge", this.formatPercent(snapshot.batteryPercentage, 1));
+    const energy = this.batteryEnergyLabel(snapshot);
+    if (energy) charge.appendChild(this.el("span", "pwtv-metric-label pwtv-battery-energy", energy));
+    fragment.appendChild(charge);
 
     const wrapper = this.el("span");
     wrapper.appendChild(fragment);
     return wrapper;
+  },
+
+  renderGridMetric(snapshot) {
+    const metric = this.renderMetric("grid", this.renderGridValue(snapshot), this.gridLabel(snapshot), true);
+    const label = metric.querySelector(".pwtv-metric-label");
+    label.appendChild(this.renderExportFeedback(snapshot));
+    return metric;
   },
 
   renderGridValue(snapshot) {
