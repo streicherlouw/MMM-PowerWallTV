@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Integrated feedback layout
+
+- Move forecast feedback inside the main panel and raise the battery reading to make room.
+- Replace the Powerwall caption with smaller stored/total energy beside the charge percentage.
+
 ## 2026-10-03 — Controller-backed forecast messages
 
 - Show concise forecast and export-policy messages below the graphic in normal layout flow.

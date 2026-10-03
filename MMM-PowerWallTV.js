@@ -208,11 +208,11 @@ Module.register("MMM-PowerWallTV", {
     const scene = this.el("div", "pwtv-scene");
     this.domRefs.scene = scene;
     wrapper.appendChild(scene);
-    wrapper.appendChild(this.renderExportFeedback(this.snapshot));
 
     const stage = this.el("div", "pwtv-stage");
     this.domRefs.stage = stage;
     scene.appendChild(stage);
+    scene.appendChild(this.renderExportFeedback(this.snapshot));
 
     const image = this.el("img", "pwtv-home-image");
     image.src = this.file(`assets/${this.homeImageName()}`);
@@ -270,7 +270,7 @@ Module.register("MMM-PowerWallTV", {
       return false;
     }
 
-    this.replaceElement(this.domRefs.wrapper, ".pwtv-feedback", this.renderExportFeedback(snapshot));
+    this.replaceElement(this.domRefs.scene, ".pwtv-feedback", this.renderExportFeedback(snapshot));
     const scene = this.domRefs.scene;
     const stage = this.domRefs.stage;
 
@@ -456,7 +456,6 @@ Module.register("MMM-PowerWallTV", {
     const valueNode = this.el("div", "pwtv-metric-value");
     valueNode.appendChild(this.renderBatteryValue(snapshot));
     metric.appendChild(valueNode);
-    metric.appendChild(this.el("div", "pwtv-metric-label", this.batteryLabel(snapshot)));
 
     return metric;
   },
@@ -468,6 +467,9 @@ Module.register("MMM-PowerWallTV", {
     const arrow = this.el("span", `pwtv-battery-arrow ${this.batteryArrowClass(snapshot)}`);
     fragment.appendChild(arrow);
     fragment.appendChild(document.createTextNode(` ${this.formatPercent(snapshot.batteryPercentage, 1)}`));
+
+    const energy = this.batteryEnergyLabel(snapshot);
+    if (energy) fragment.appendChild(this.el("span", "pwtv-battery-energy", energy));
 
     const wrapper = this.el("span");
     wrapper.appendChild(fragment);
@@ -873,10 +875,14 @@ Module.register("MMM-PowerWallTV", {
     return count > 1 ? `VEHICLES (${count})` : "VEHICLE";
   },
 
-  batteryLabel(snapshot) {
-    const count = Number(snapshot.batteryCount) || 0;
-    const capacityKwh = Math.round(count * 13.5);
-    return capacityKwh > 0 ? `POWERWALL ${capacityKwh.toFixed(0)} kWh` : "POWERWALL";
+  batteryEnergyLabel(snapshot) {
+    // Match the nominal 13.5 kWh per Powerwall capacity previously shown in the caption.
+    const capacityKwh = Number(snapshot.batteryCount) * 13.5;
+    const percentage = snapshot.batteryPercentage;
+    if (!Number.isFinite(capacityKwh) || capacityKwh <= 0 ||
+        !Number.isFinite(percentage)) return "";
+    const storedKwh = capacityKwh * Math.max(0, Math.min(100, percentage)) / 100;
+    return `${this.formatNumber(storedKwh, 1)} of ${this.formatNumber(capacityKwh, Number.isInteger(capacityKwh) ? 0 : 1)}kWh`;
   },
 
   batteryShareVisible(start, timeZone, now = new Date()) {

@@ -401,10 +401,23 @@
   }
 }
 
-/* Normal document flow below the scene: never overlaps meters or artwork. */
-.pwtv-feedback { background: #161718; padding: 12px 5% 16px; text-align: left; }
+/* Keep feedback within the main scene, below the raised battery reading. */
+.pwtv-feedback {
+  position: absolute;
+  bottom: 4%;
+  left: 5%;
+  max-width: 70%;
+  text-align: left;
+  z-index: 2;
+}
 .pwtv-feedback-heading { font-size: clamp(16px, 2.1cqw, 23px); font-weight: 500; color: #e4e4e4; line-height: 1.3; }
 .pwtv-feedback-detail { margin-top: 4px; font-size: clamp(14px, 1.8cqw, 20px); color: #aaa; line-height: 1.35; }
-
-/* Reserve room for the strip within the former card footprint. */
-.pwtv-feedback-layout .pwtv-scene { aspect-ratio: 16 / 7.6; }
+.pwtv-feedback-layout .pwtv-metric-battery { bottom: 20%; }
+.pwtv-battery-energy {
+  display: inline-block;
+  margin-left: 0.6em;
+  font-size: 0.5em;
+  font-weight: 500;
+  color: #aaa;
+  vertical-align: baseline;
+}

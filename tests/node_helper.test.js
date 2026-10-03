@@ -353,3 +353,16 @@ test("discovery flags and verified identity reach history and snapshot", async (
   } });
   assert.equal(result.resolvedGatewayIP, "10.0.0.75");
 });
+
+test("battery energy caption preserves fractional capacity and guards missing readings", () => {
+  let frontend;
+  vm.runInNewContext(fs.readFileSync(path.join(directory, "MMM-PowerWallTV.js"), "utf8"), {
+    Module: { register: (_, definition) => { frontend = definition; } }
+  });
+  frontend.formatNumber = (value, digits) => value.toFixed(digits);
+  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: 50 }), "13.5 of 27kWh");
+  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 1, batteryPercentage: 100 }), "13.5 of 13.5kWh");
+  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: 0 }), "0.0 of 27kWh");
+  assert.equal(frontend.batteryEnergyLabel({ batteryCount: 2, batteryPercentage: null }), "");
+  assert.equal(frontend.batteryEnergyLabel({ batteryPercentage: 50 }), "");
+});
