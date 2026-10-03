@@ -5,9 +5,10 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const directory = path.resolve(__dirname, "..");
-function helper() {
+function helper(now) {
   const sandbox = {
     require: (name) => name === "node_helper" ? { create: (definition) => definition } : require(name.startsWith("./") ? path.join(directory, name) : name),
+    Date: now === undefined ? Date : class extends Date { static now() { return now; } },
     module: { exports: {} }, __dirname: directory, process, Buffer, setTimeout, clearTimeout, console
   };
   vm.runInNewContext(fs.readFileSync(path.join(directory, "node_helper.js"), "utf8"), sandbox);
@@ -387,4 +388,31 @@ test("export dot shows forecast plan and turns grey on delayed readings", () => 
   frontend.infoMessage = "Powerwall data delayed";
   assert.equal(frontend.renderExportFeedback({ exportFeedback: { heading: "BATTERY EXPORT PLANNED" } })
     .children[1].className, "pwtv-export-dot pwtv-export-dot-unknown");
+});
+
+test("snapshot integrates cached hourly generation with live load for the export dot", async () => {
+  const now = Date.parse("2026-10-03T13:00:00+10:00");
+  const folder = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "pwtv-prediction-"));
+  try {
+    const statusPath = path.join(folder,"status.json"), forecastPath = path.join(folder,"forecast.json");
+    fs.writeFileSync(statusPath,JSON.stringify({updatedAt:now,enabled:true,confirmed:true,soc:50,
+      timezone:"Australia/Melbourne",forecastDate:"2026-10-04",forecastKwh:75,thresholdKwh:35,
+      startPercent:90,stopPercent:65}));
+    fs.writeFileSync(forecastPath,JSON.stringify({instances:{solar:{forecast:{updatedAt:new Date(now).toISOString(),
+      timezone:"Australia/Melbourne",days:[{date:"2026-10-03",hours:[13,14,15,16].map(hour=>({
+        minuteOfDay:hour*60,time:`2026-10-03T${hour}:00`,generationKwh:5}))}]}}}}));
+    const h=helper(now);
+    h.fetchElectricityMaps=async()=>null;
+    h.fetchTedapiSnapshot=async()=>({source:"v1r",batteryCount:2,predictionHomePowerWatts:1000});
+    const config={mode:"v1r",exportFeedbackPath:statusPath,ExportPrediction:{forecastCachePath:forecastPath}};
+    let result=await h.fetchSnapshot("test",config);
+    assert.equal(result.exportFeedback.heading,"BATTERY EXPORT PLANNED");
+    assert.ok(result.exportPrediction.projectedPercent>90);
+    h.fetchTedapiSnapshot=async()=>({source:"v1r",batteryCount:2,predictionHomePowerWatts:4000});
+    result=await h.fetchSnapshot("test",config);
+    assert.equal(result.exportFeedback.heading,"BATTERY EXPORT BLOCKED");
+    fs.unlinkSync(forecastPath);
+    result=await h.fetchSnapshot("test",config);
+    assert.equal(result.exportFeedback.heading,"EXPORT STATUS UNKNOWN");
+  } finally { fs.rmSync(folder,{recursive:true,force:true}); }
 });

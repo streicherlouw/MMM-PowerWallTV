@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-03 — Forecast battery readiness for export
+
+- Combine tomorrow’s solar forecast with a projected 5PM charge level for the export dot.
+- Reuse local hourly solar forecasts, subtract current home load, and model charging limits/losses.
+- Use current charge and controller latch during the export window; keep unavailable estimates grey.
+- Add configurable prediction assumptions and diagnostic/hover details without changing export controls.
+
 ## 2026-10-03 — Balanced caption spacing
 
 - Match the BATTERY-to-energy gap to the export-indicator-to-GRID gap.

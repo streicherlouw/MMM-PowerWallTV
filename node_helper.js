@@ -1,5 +1,6 @@
 const NodeHelper = require("node_helper");
 const { feedback } = require("./lib/export-feedback");
+const { DEFAULTS: predictionDefaults, predictCharge } = require("./lib/export-prediction");
 const GridExportWindow = require("./lib/grid-export-window");
 const { execFile } = require("child_process");
 const fs = require("fs");
@@ -60,7 +61,16 @@ module.exports = NodeHelper.create({
     if (normalized.exportFeedbackPath) {
       let status;
       try { status = JSON.parse(fs.readFileSync(normalized.exportFeedbackPath, "utf8")); } catch { /* Display unavailable. */ }
-      try { snapshot.exportFeedback = feedback(status); } catch { snapshot.exportFeedback = feedback(null); }
+      let forecastCache;
+      try {
+        const filename = normalized.ExportPrediction.forecastCachePath.replace(/^~(?=\/|$)/, os.homedir());
+        forecastCache = JSON.parse(fs.readFileSync(filename, "utf8"));
+      } catch { /* Missing forecast produces a grey indicator. */ }
+      try {
+        const now = Date.now();
+        snapshot.exportPrediction = predictCharge(status, snapshot, forecastCache, normalized.ExportPrediction, now);
+        snapshot.exportFeedback = feedback(status, now, snapshot.exportPrediction);
+      } catch { snapshot.exportFeedback = feedback(null); }
     }
     snapshot.instanceId = instanceId;
     snapshot.fetchedAt = new Date().toISOString();
@@ -170,6 +180,7 @@ module.exports = NodeHelper.create({
     return {
       mode,
       exportFeedbackPath: config.exportFeedbackPath || "",
+      ExportPrediction: { ...predictionDefaults, ...config.ExportPrediction },
       BatteryExportToGridLimit,
       GridExportWindow: gridExportWindow,
       local,
@@ -283,6 +294,7 @@ module.exports = NodeHelper.create({
       siteName: config.tedapi.siteName || payload.siteName || "",
       solarPower: Number(payload.solarPower) || 0,
       homePower: Number(payload.homePower) || 0,
+      predictionHomePowerWatts: Number.isFinite(payload.homePower) && payload.homePower >= 0 ? payload.homePower : null,
       batteryPower: Number(payload.batteryPower) || 0,
       gridPower: Number(payload.gridPower) || 0,
       batteryPercentage: Number(payload.batteryPercentage) || 0,

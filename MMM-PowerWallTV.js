@@ -353,8 +353,9 @@ Module.register("MMM-PowerWallTV", {
     if (!message) { strip.style && (strip.style.display = "none"); return strip; }
     const state = message.heading === "BATTERY EXPORT PLANNED" ? "planned" :
       message.heading === "BATTERY EXPORT BLOCKED" ? "blocked" : "unknown";
-    strip.title = message.heading;
-    strip.setAttribute("aria-label", message.heading);
+    const description = [message.heading, message.detail].filter(Boolean).join(" — ");
+    strip.title = description;
+    strip.setAttribute("aria-label", description);
     strip.appendChild(this.el("span", "pwtv-feedback-heading", "EXPORT"));
     const dot = this.el("span", `pwtv-export-dot pwtv-export-dot-${state}`);
     dot.setAttribute("aria-hidden", "true");

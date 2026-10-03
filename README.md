@@ -571,7 +571,32 @@ On first verified recovery, history under the configured bootstrap IP/site/timez
 
 Set top-level `exportFeedbackPath` to the Homebridge controller's private `powerwall-forecast-<site-hash>.json.status.json` file. MagicMirror and Homebridge must share readable local storage (the HomeScreen installation runs both as the same user). No credentials are included in the status file.
 
-A right-aligned `EXPORT` caption with a coloured dot sits on the same line immediately left of `GRID`. Green means battery export is planned (forecast above the controller threshold); red means blocked (forecast at or below it). Grey means the forecast or controller status is unavailable, stale or unconfirmed, or automation is disabled. The dot describes the forecast plan, not instantaneous export: charge thresholds and the premium window still govern actual export. Hover text and an accessible label provide the full status.
+A right-aligned `EXPORT` caption with a coloured dot sits on the same line immediately left of `GRID`:
+
+- **Green before 5PM:** tomorrow's forecast exceeds the controller's threshold **and** the predicted battery level at 5PM exceeds its start threshold (normally 90%).
+- **Red before 5PM:** tomorrow's forecast is low, or projected charge is insufficient. A battery already above 90% can still be red if expected home consumption will reduce it below the threshold by 5PM.
+- **Grey:** required forecast, telemetry or controller status is missing/stale, or automation is off.
+- **During 5–9PM:** high tomorrow forecast plus current charge above the start threshold, or confirmed active export above the stop threshold, gives green. After 9PM the indicator is red for the ended window.
+
+This is a display prediction, not a new control rule. The controller still determines actual export. The full estimate is available in hover/accessibility text and `snapshot.exportPrediction`.
+
+### Battery charge prediction
+
+The display reuses the local `MMM-SolarIrradianceForecast` hourly cache. It integrates only the remaining fraction of each hour from now to 5PM in the controller's timezone. Each interval subtracts current total home load (assumed constant), applies charging/discharging efficiency, caps charging power, and bounds stored energy between empty and full. It does not count solar generation after 5PM. The starting percentage comes from the controller so the prediction uses the same scale as its threshold.
+
+```javascript
+ExportPrediction: {
+  forecastCachePath: "~/.cache/MMM-SolarIrradianceForecast/forecast-cache.json",
+  forecastInstanceId: "", // Set if multiple forecast instances share the timezone/date.
+  maxAgeMinutes: 120,
+  chargeEfficiency: 0.90,
+  dischargeEfficiency: 0.95,
+  capacityKwh: null, // Defaults to batteryCount × 13.5kWh.
+  maxChargeKw: null  // Conservative default: batteryCount × 5kW; override for your installation.
+},
+```
+
+These are modelling assumptions, not measured efficiency or guaranteed output. Forecast solar is the array's expected available generation before site curtailment. Changes in weather, home demand, temperature or charging restrictions can alter the result. No grid charging is assumed. A forecast gap, ambiguous cache, invalid load, or forecast older than two hours yields grey rather than a confident estimate. Configure the cache to use the same installation as the Powerwall controller.
 
 Stored energy (for example, `13.5 OF 27kWh`) sits beside `BATTERY` beneath the power reading, with the same gap as the export indicator has from `GRID`. Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 
