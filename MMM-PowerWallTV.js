@@ -188,7 +188,7 @@ Module.register("MMM-PowerWallTV", {
   },
 
   getDom() {
-    const wrapper = this.el("div", "pwtv");
+    const wrapper = this.el("div", this.config.exportFeedbackPath ? "pwtv pwtv-feedback-layout" : "pwtv");
     this.domRefs = {
       wrapper,
       scene: null,
