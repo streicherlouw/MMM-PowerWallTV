@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Brief export status
+
+- Abbreviate forecast feedback to one message describing the plan or confirmed export state.
+- Place feedback above the battery reading and restore the reading to its lower position.
+
 ## 2026-10-03 — Integrated feedback layout
 
 - Move forecast feedback inside the main panel and raise the battery reading to make room.

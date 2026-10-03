@@ -401,10 +401,10 @@
   }
 }
 
-/* Keep feedback within the main scene, below the raised battery reading. */
+/* Keep the short forecast message above the battery reading inside the scene. */
 .pwtv-feedback {
   position: absolute;
-  bottom: 4%;
+  bottom: 19%;
   left: 5%;
   max-width: 70%;
   text-align: left;
@@ -412,7 +412,7 @@
 }
 .pwtv-feedback-heading { font-size: clamp(16px, 2.1cqw, 23px); font-weight: 500; color: #e4e4e4; line-height: 1.3; }
 .pwtv-feedback-detail { margin-top: 4px; font-size: clamp(14px, 1.8cqw, 20px); color: #aaa; line-height: 1.35; }
-.pwtv-feedback-layout .pwtv-metric-battery { bottom: 20%; }
+.pwtv-feedback-layout .pwtv-metric-battery { bottom: 8%; }
 .pwtv-battery-energy {
   display: inline-block;
   margin-left: 0.6em;

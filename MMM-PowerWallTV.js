@@ -350,11 +350,11 @@ Module.register("MMM-PowerWallTV", {
     const strip = this.el("div", "pwtv-feedback");
     let message = snapshot && snapshot.exportFeedback;
     if ((this.infoMessage && this.infoMessage.startsWith("Powerwall data delayed")) || this.errorMessage || (snapshot && snapshot.errorMessage)) {
-      message = { heading: "Powerwall data delayed", detail: "Live settings unconfirmed—checking connection." };
+      message = { heading: "Powerwall unavailable · Export status unconfirmed", detail: "" };
     }
     if (!message) { strip.style && (strip.style.display = "none"); return strip; }
     strip.appendChild(this.el("div", "pwtv-feedback-heading", message.heading));
-    strip.appendChild(this.el("div", "pwtv-feedback-detail", message.detail));
+    if (message.detail) strip.appendChild(this.el("div", "pwtv-feedback-detail", message.detail));
     return strip;
   },
 
