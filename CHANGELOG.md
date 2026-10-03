@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-03 — Simplify export summary
+
+- Remove the export-source percentage row from the display, retaining energy totals and internal attribution.
+
 ## 2026-10-03 — Verified DHCP recovery
 
 - Add opt-in pyPowerwall discovery after repeated connection failures, with bounded scans and cooldown.
