@@ -244,7 +244,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   assert.equal(dom.children[1].children[0].textContent, "EXPORTED TODAY");
   assert.equal(dom.children[1].children[1].textContent, "27.0 kWh");
   assert.equal(dom.children[1].children[1].className, dom.children[0].children[1].className);
-  assert.equal(dom.children[2].children[0].textContent, "EXPORTED 5-9PM");
+  assert.equal(dom.children[2].children[0].textContent, "5-9PM");
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   assert.equal(dom.children[2].children[1].className, dom.children[0].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
@@ -253,7 +253,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   snapshot.gridExportWindow.estimated = true;
   dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children[1].children[0].textContent, "EXPORTED TODAY");
-  assert.equal(dom.children[2].children[0].textContent, "EXPORTED 4:30-8:15PM");
+  assert.equal(dom.children[2].children[0].textContent, "4:30-8:15PM");
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   snapshot.gridExportWindow.batterySharePartial = true;
   snapshot.gridExportWindow.batteryPercent = null;
@@ -314,7 +314,7 @@ test("export source percentages stay hidden while energy totals remain", () => {
   let dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children.length, 3);
   assert.ok(!JSON.stringify(dom).includes("FROM BATTERY"));
-  assert.ok(JSON.stringify(dom).includes("EXPORTED 5-9PM"));
+  assert.ok(JSON.stringify(dom).includes("5-9PM"));
   frontend.batteryShareVisible = () => true;
   dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children.length, 3);
@@ -381,7 +381,7 @@ test("export dot shows forecast plan and turns grey on delayed readings", () => 
     ["BATTERY EXPORT BLOCKED", "blocked"], ["CHARGE LIMITS APPLY", "unknown"],
     ["EXPORT CONTROL OFF", "unknown"], ["EXPORT STATUS UNKNOWN", "unknown"]]) {
     const dom = frontend.renderExportFeedback({ exportFeedback: { heading } });
-    assert.equal(dom.children[0].textContent, "EXPORT");
+    assert.equal(dom.children[0].textContent, "FORECAST");
     assert.equal(dom.children[1].className, `pwtv-export-dot pwtv-export-dot-${state}`);
     assert.equal(dom["aria-label"], heading);
   }

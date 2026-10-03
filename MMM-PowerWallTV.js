@@ -356,7 +356,7 @@ Module.register("MMM-PowerWallTV", {
     const description = [message.heading, message.detail].filter(Boolean).join(" — ");
     strip.title = description;
     strip.setAttribute("aria-label", description);
-    strip.appendChild(this.el("span", "pwtv-feedback-heading", "EXPORT"));
+    strip.appendChild(this.el("span", "pwtv-feedback-heading", "FORECAST"));
     const dot = this.el("span", `pwtv-export-dot pwtv-export-dot-${state}`);
     dot.setAttribute("aria-hidden", "true");
     strip.appendChild(dot);
@@ -394,7 +394,7 @@ Module.register("MMM-PowerWallTV", {
     if (exportWindow.show && ["v1r", "tedapi"].includes(snapshot.source)) {
       const reading = snapshot.gridExportWindow;
       const block = this.el("div", "pwtv-summary-generated pwtv-summary-export-window");
-      const label = `EXPORTED ${this.exportWindowLabel(exportWindow.start, exportWindow.end)}`;
+      const label = this.exportWindowLabel(exportWindow.start, exportWindow.end);
       block.appendChild(this.el("div", "pwtv-summary-label pwtv-summary-generated-label",
         label));
       const value = reading && Number.isFinite(reading.energyWh)

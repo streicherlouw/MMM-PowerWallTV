@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-03 — Shorter display labels
+
+- Shorten the export-window heading to its hours, such as 5-9PM.
+- Rename the coloured readiness indicator to FORECAST.
+
 ## 2026-10-03 — Forecast battery readiness for export
 
 - Combine tomorrow’s solar forecast with a projected 5PM charge level for the export dot.
