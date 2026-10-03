@@ -907,10 +907,9 @@ Module.register("MMM-PowerWallTV", {
       const currentTenths = Math.round(storedKwh * 10);
       const targetTenths = Math.round(capacityKwh * prediction.projectedPercent / 10);
       const change = (targetTenths - currentTenths) / 10;
-      additional = ` (${change >= 0 ? "+" : "−"}${this.formatNumber(Math.abs(change), 1)})`;
+      additional = ` (${change >= 0 ? "+" : "−"}${this.formatNumber(Math.abs(change), 1)}, ${this.formatNumber(prediction.projectedPercent, 0)}%)`;
     }
-    const target = predicted ? ` (${this.formatNumber(prediction.projectedPercent, 0)}%)` : "";
-    return `${this.formatNumber(storedKwh, 1)}${additional} kWh${target}`;
+    return `${this.formatNumber(storedKwh, 1)}${additional} of ${this.formatNumber(capacityKwh, Number.isInteger(capacityKwh) ? 0 : 1)}kWh`;
   },
 
   batteryShareVisible(start, timeZone, now = new Date()) {
