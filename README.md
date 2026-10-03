@@ -600,7 +600,7 @@ ExportPrediction: {
 
 These are modelling assumptions, not measured efficiency or guaranteed output. Forecast solar is the array's expected available generation before site curtailment. Changes in weather, home demand, temperature or charging restrictions can alter the result. No grid charging is assumed. A forecast gap, ambiguous cache, invalid load, or forecast older than two hours yields grey rather than a confident estimate. Configure the cache to use the same installation as the Powerwall controller.
 
-Stored energy (for example, `13.5 (+5.4) kWh, 70% at 5PM`) sits beside `BATTERY` beneath the power reading, with the same gap as the export indicator has from `GRID`. Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
+Stored energy (for example, `13.5 (+5.4) kWh (70%)`) sits beside `BATTERY` beneath the power reading, with the same gap as the export indicator has from `GRID`. Stored energy uses charge percentage × nominal capacity (13.5kWh per Powerwall).
 
 
 When using Homebridge as the export authority, set `BatteryExportToGridLimit.active: false` in MagicMirror. Enable `forecastExport.manageOperatingMode: true` in Homebridge to select savings for battery export and self-powered otherwise. The Homebridge rules, including strict >90% activation and ≤65% cutoff, drive the display. Homebridge currently uses the fixed 5–9PM schedule; MagicMirror's display-window configuration does not change that controller's schedule.
@@ -621,4 +621,4 @@ On HomeScreen, the lower three panels retain equal gaps of approximately 40px an
 
 The parenthesized battery amount is the predicted **net change in stored energy by 5PM**, using exactly the forecast-indicator model: remaining solar minus current-rate home use, allowing for losses, charging limits and capacity. It uses the same starting charge and capacity as the prediction; adding the displayed values gives the projected 5PM energy, rounded to 0.1kWh. Negative changes show a minus sign. The addition is omitted when the prediction is unavailable or the 5PM target has passed. It excludes solar production after 5PM so it remains consistent with the indicator.
 
-The battery caption includes the live projected percentage at 5PM, rounded to a whole percent. This is the forecast-dot target, not necessarily the day’s highest charge. When prediction is unavailable or 5PM has passed, only current stored kWh are shown.
+The battery caption includes the live projected percentage at 5PM in parentheses, rounded to a whole percent. This is the forecast-dot target, not necessarily the day’s highest charge. When prediction is unavailable or 5PM has passed, only current stored kWh are shown.

@@ -909,7 +909,7 @@ Module.register("MMM-PowerWallTV", {
       const change = (targetTenths - currentTenths) / 10;
       additional = ` (${change >= 0 ? "+" : "−"}${this.formatNumber(Math.abs(change), 1)})`;
     }
-    const target = predicted ? `, ${this.formatNumber(prediction.projectedPercent, 0)}% at 5PM` : "";
+    const target = predicted ? ` (${this.formatNumber(prediction.projectedPercent, 0)}%)` : "";
     return `${this.formatNumber(storedKwh, 1)}${additional} kWh${target}`;
   },
 
