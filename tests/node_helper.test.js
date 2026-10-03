@@ -244,7 +244,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   assert.equal(dom.children[1].children[0].textContent, "EXPORTED TODAY");
   assert.equal(dom.children[1].children[1].textContent, "27.0 kWh");
   assert.equal(dom.children[1].children[1].className, dom.children[0].children[1].className);
-  assert.equal(dom.children[2].children[0].textContent, "5-9PM");
+  assert.equal(dom.children[2].children[0].textContent, "5-9 PM");
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   assert.equal(dom.children[2].children[1].className, dom.children[0].children[1].className);
   frontend.config.GridExportWindow = { show: true, start: "16:30", end: "20:15" };
@@ -253,7 +253,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   snapshot.gridExportWindow.estimated = true;
   dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children[1].children[0].textContent, "EXPORTED TODAY");
-  assert.equal(dom.children[2].children[0].textContent, "4:30-8:15PM");
+  assert.equal(dom.children[2].children[0].textContent, "4:30-8:15 PM");
   assert.equal(dom.children[2].children[1].textContent, "12.5 kWh");
   snapshot.gridExportWindow.batterySharePartial = true;
   snapshot.gridExportWindow.batteryPercent = null;
@@ -262,7 +262,7 @@ test("export window uses existing summary fonts, follows its label settings and 
   assert.equal(frontend.renderSummary(snapshot).children[2].children[1].textContent, "— kWh");
   frontend.config.GridExportWindow.show = false;
   assert.equal(frontend.renderSummary(snapshot).children.length, 2);
-  assert.equal(frontend.exportWindowLabel("10:00", "14:00"), "10AM-2PM");
+  assert.equal(frontend.exportWindowLabel("10:00", "14:00"), "10 AM-2 PM");
 });
 
 test("export window is persisted with aggregate history and forwarded to display snapshots", async () => {
@@ -314,7 +314,7 @@ test("export source percentages stay hidden while energy totals remain", () => {
   let dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children.length, 3);
   assert.ok(!JSON.stringify(dom).includes("FROM BATTERY"));
-  assert.ok(JSON.stringify(dom).includes("5-9PM"));
+  assert.ok(JSON.stringify(dom).includes("5-9 PM"));
   frontend.batteryShareVisible = () => true;
   dom = frontend.renderSummary(snapshot);
   assert.equal(dom.children.length, 3);

@@ -920,7 +920,7 @@ Module.register("MMM-PowerWallTV", {
         suffix: hour % 24 < 12 ? "AM" : "PM" };
     };
     const from = format(start), to = format(end);
-    return `${from.time}${from.suffix === to.suffix ? "" : from.suffix}-${to.time}${to.suffix}`;
+    return `${from.time}${from.suffix === to.suffix ? "" : ` ${from.suffix}`}-${to.time} ${to.suffix}`;
   },
 
   generatedTodayValue(snapshot) {

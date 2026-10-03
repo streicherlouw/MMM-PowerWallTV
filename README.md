@@ -14,7 +14,7 @@ In v1r/TEDAPI mode, the upper-left summary displays these readings in matching f
 | --- | --- |
 | `GENERATED TODAY` | Solar energy produced since local midnight |
 | `EXPORTED TODAY` | Total energy sent to the grid since local midnight, from solar and batteries |
-| `5-9PM` | Energy sent to the grid during the configured daily window; the label follows its start/end times |
+| `5-9 PM` | Energy sent to the grid during the configured daily window; the label follows its start/end times |
 
 Energy readings use kWh. Imports are not subtracted from the export totals. The module uses `tedapi.timezone` (or the host timezone), retains daily state across restarts, and marks estimated solar generation (`≈`), incomplete (`PARTIAL`), or unavailable (`— kWh`) readings explicitly. `showSummary: false` hides the whole summary; `GridExportWindow.show: false` hides the window reading, while daily totals remain visible.
 
@@ -208,7 +208,7 @@ The daily total is independent of the tariff window and remains visible when `Gr
 
 ## Grid export window display
 
-The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, and `5-9PM` in that order, using the same label and value fonts with extra spacing between readings. The window reading is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. It uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
+The upper-left summary shows `GENERATED TODAY`, `EXPORTED TODAY`, and `5-9 PM` in that order, using the same label and value fonts with extra spacing between readings. The window reading is **energy exported to the grid**, including solar and battery exports, not solar generation or net exports after imports. It uses cumulative `site.energy_exported` Wh from the v1r/TEDAPI aggregate meters and displays kWh.
 
 Configure the window at the top level of the module config:
 
@@ -220,7 +220,7 @@ GridExportWindow: {
 },
 ```
 
-These are the defaults. Use 24-hour `HH:mm` values; the label follows the configured times (for example, `16:30` to `20:15` displays `4:30-8:15PM`). The end must be later than the start on the same day; `24:00` is allowed as the end. Overnight windows are not supported. Set `show: false` to hide this reading; counting continues so it can be shown again later. `showSummary` must also be true. This reading is available in v1r and Wi-Fi TEDAPI modes with valid grid export counters.
+These are the defaults. Use 24-hour `HH:mm` values; the label follows the configured times (for example, `16:30` to `20:15` displays `4:30-8:15 PM`). The end must be later than the start on the same day; `24:00` is allowed as the end. Overnight windows are not supported. Set `show: false` to hide this reading; counting continues so it can be shown again later. `showSummary` must also be true. This reading is available in v1r and Wi-Fi TEDAPI modes with valid grid export counters.
 
 The window follows `tedapi.timezone`, including daylight saving time, or the host timezone if unset. The value starts at zero each local calendar day, accumulates during the window, and remains visible after the window closes until midnight. Its state is saved with the existing aggregate history, so restarting MagicMirror retains the count. Changing the window recalculates what can be recovered from saved meter history.
 
